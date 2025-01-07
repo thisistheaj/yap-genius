@@ -5,7 +5,7 @@ import invariant from "tiny-invariant";
 import { useEffect } from "react";
 
 import { getChannel } from "~/models/channel.server";
-import { createMessage, getChannelMessages } from "~/models/message.server";
+import { createMessage, getChannelMessages, updateMessage, deleteMessage } from "~/models/message.server";
 import { requireUserId } from "~/session.server";
 import { Avatar } from "~/components/shared/Avatar";
 import { Button } from "~/components/ui/button";
@@ -13,6 +13,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { StarIcon } from "~/components/icons/star-icon";
 import { useUser } from "~/utils";
 import type { Channel, Message } from "~/types";
+import { MessageList } from "~/components/chat/MessageList";
 
 type LoaderData = {
   channel: Channel;
@@ -45,6 +46,47 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   }
 
   const formData = await request.formData();
+  const action = formData.get("_action");
+
+  if (action === "editMessage") {
+    const messageId = formData.get("messageId");
+    const content = formData.get("content");
+
+    if (typeof messageId !== "string" || typeof content !== "string" || content.length === 0) {
+      return json(
+        { errors: { content: "Message content cannot be empty" } },
+        { status: 400 }
+      );
+    }
+
+    await updateMessage({
+      id: messageId,
+      content,
+      userId,
+    });
+
+    return json({ ok: true });
+  }
+
+  if (action === "deleteMessage") {
+    const messageId = formData.get("messageId");
+
+    if (typeof messageId !== "string") {
+      return json(
+        { errors: { messageId: "Message ID is required" } },
+        { status: 400 }
+      );
+    }
+
+    await deleteMessage({
+      id: messageId,
+      userId,
+    });
+
+    return json({ ok: true });
+  }
+
+  // Handle regular message creation
   const content = formData.get("content");
 
   if (typeof content !== "string" || content.length === 0) {
@@ -134,24 +176,7 @@ export default function ChannelPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse">
-        <div className="space-y-4">
-          {messages.map((message) => (
-            <div key={message.id} className="flex gap-3">
-              <Avatar user={message.user} size="sm" />
-              <div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-medium text-sm">
-                    {message.user.name || message.user.email}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(message.createdAt).toLocaleTimeString()}
-                  </span>
-                </div>
-                <p className="text-sm">{message.content}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <MessageList messages={messages} currentUserId={user.id} />
       </div>
 
       {/* Message Input */}

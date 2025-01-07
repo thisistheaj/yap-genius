@@ -60,3 +60,78 @@ export async function getChannelMessages(channelId: string): Promise<Message[]> 
     }
   });
 }
+
+export async function updateMessage({
+  id,
+  content,
+  userId,
+}: {
+  id: string;
+  content: string;
+  userId: string;
+}): Promise<Message> {
+  // @ts-ignore - Prisma types not recognizing message model
+  const message = await prisma.message.update({
+    where: { 
+      id,
+      userId // Ensure user owns the message
+    },
+    data: { 
+      content,
+      editedAt: new Date()
+    },
+    include: {
+      user: true,
+      channel: {
+        include: {
+          members: {
+            include: {
+              user: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Emit event for real-time updates
+  emitMessageEvent(message.channelId, message);
+
+  return message;
+}
+
+export async function deleteMessage({
+  id,
+  userId,
+}: {
+  id: string;
+  userId: string;
+}): Promise<Message> {
+  // @ts-ignore - Prisma types not recognizing message model
+  const message = await prisma.message.update({
+    where: { 
+      id,
+      userId // Ensure user owns the message
+    },
+    data: {
+      deletedAt: new Date()
+    },
+    include: {
+      user: true,
+      channel: {
+        include: {
+          members: {
+            include: {
+              user: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Emit event for real-time updates
+  emitMessageEvent(message.channelId, message);
+
+  return message;
+}

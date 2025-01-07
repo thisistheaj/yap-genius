@@ -1,7 +1,11 @@
 export interface User {
   id: string;
   email: string;
-  name?: string;
+  username?: string;
+  displayName?: string;
+  avatarUrl?: string;
+  status?: string;
+  lastSeen?: string | Date;
   createdAt: string | Date;
   updatedAt: string | Date;
 }
@@ -37,6 +41,9 @@ export interface Message {
   channelId: string;
   user: User;
   channel: Channel;
+  parentId?: string;
+  editedAt?: string | Date;
+  deletedAt?: string | Date;
   createdAt: string | Date;
   updatedAt: string | Date;
 } 

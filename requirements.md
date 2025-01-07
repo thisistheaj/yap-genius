@@ -24,10 +24,10 @@ I want to send messages
 So that I can communicate with others
 - [x] Can send text messages
 - [x] See messages appear immediately
-- [ ] Can edit my messages **
-- [ ] Can delete my messages **
-- [ ] See "edited" indicator on edited messages **
-- [ ] See delivery confirmation
+- [x] Can edit my messages
+- [x] Can delete my messages
+- [x] See "edited" indicator on edited messages
+- [x] See delivery confirmation
 
 As a user
 I want to receive messages
@@ -35,8 +35,8 @@ So that I can stay updated on conversations
 - [x] See new messages in real-time
 - [x] See message timestamps
 - [x] Messages persist after refresh
-- [ ] Can copy message content **
-- [ ] Can share message links **
+- [x] Can copy message content
+- [ ] Can share message links
 
 ## 3. Channel/DM Organization
 
@@ -73,7 +73,7 @@ So that I can easily find conversations
 - [x] Can archive channels
 - [x] Can set channel description
 - [x] Can edit channel description and name
-- [ ] Can mark channels as favorites ***
+- [x] Can mark channels as favorites
 - [ ] Can see unread indicators
 - [ ] Can sort channels by activity
 - [ ] Can mute channels/DMs
