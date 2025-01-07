@@ -20,7 +20,7 @@ export function Sidebar({ className, isCollapsed, channels }: SidebarProps) {
   
   return (
     <div className={cn("flex h-full flex-col", className)}>
-      <div className="flex-1">
+      <ScrollArea className="flex-1">
         <div className="space-y-4 py-4">
           <div className="px-3 py-2">
             <h2 className="mb-2 px-4 text-lg font-semibold">YapGenius</h2>
@@ -65,44 +65,40 @@ export function Sidebar({ className, isCollapsed, channels }: SidebarProps) {
           <Separator />
           <div className="px-3 py-2">
             <h2 className="mb-2 px-4 text-lg font-semibold">Channels</h2>
-            <ScrollArea className="h-[300px] px-1">
-              <div className="space-y-1">
-                {channels?.map((channel) => (
-                  <Button
-                    key={channel.id}
-                    asChild
-                    variant="ghost"
-                    className={cn(
-                      "w-full justify-start",
-                      currentChannelId === channel.id && "bg-muted"
-                    )}
-                  >
-                    <Link to={`/app/c/${channel.name}`}>
-                      <span className="mr-2 text-muted-foreground">#</span>
-                      {channel.name}
-                    </Link>
-                  </Button>
-                ))}
-              </div>
-            </ScrollArea>
+            <div className="space-y-1">
+              {channels?.map((channel) => (
+                <Button
+                  key={channel.id}
+                  asChild
+                  variant="ghost"
+                  className={cn(
+                    "w-full justify-start",
+                    currentChannelId === channel.id && "bg-muted"
+                  )}
+                >
+                  <Link to={`/app/c/${channel.name}`}>
+                    <span className="mr-2 text-muted-foreground">#</span>
+                    {channel.name}
+                  </Link>
+                </Button>
+              ))}
+            </div>
           </div>
           <Separator />
           <div className="px-3 py-2">
             <h2 className="mb-2 px-4 text-lg font-semibold">Direct Messages</h2>
-            <ScrollArea className="h-[300px] px-1">
-              <div className="space-y-1">
-                {/* We'll populate this with actual DMs later */}
-                <Button asChild variant="ghost" className="w-full justify-start">
-                  <Link to="/app/dm/example">
-                    <div className="mr-2 h-2 w-2 rounded-full bg-green-500" />
-                    John Doe
-                  </Link>
-                </Button>
-              </div>
-            </ScrollArea>
+            <div className="space-y-1">
+              {/* We'll populate this with actual DMs later */}
+              <Button asChild variant="ghost" className="w-full justify-start">
+                <Link to="/app/dm/example">
+                  <div className="mr-2 h-2 w-2 rounded-full bg-green-500" />
+                  John Doe
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </ScrollArea>
       <UserProfile user={user} />
     </div>
   );
