@@ -47,7 +47,7 @@ So that I can organize conversations
 - [x] Can set channel names and descriptions
 - [x] Can invite others to channels
 - [x] Can see member list
-- [ ] Can create private channels **
+- [x] Can create private channels
 
 As a user
 I want to search and join public channels
@@ -56,6 +56,8 @@ So that I can find new conversations
 - [x] Can see channel descriptions
 - [x] Can join public channels
 - [x] Can leave channels
+
+## 4. Direct Messages
 
 As a user
 I want to start direct messages
@@ -78,7 +80,7 @@ So that I can easily find conversations
 - [ ] Can sort channels by activity
 - [ ] Can mute channels/DMs
 
-## 4. File Sharing
+## 5. File Sharing
 
 As a user
 I want to share files
@@ -91,7 +93,15 @@ So that I can collaborate effectively
 - [ ] Get warning for large files
 - [ ] See file metadata (size, type)
 
-## 5. User Presence & Status
+## 6. User Presence & Status
+
+As a user
+I want to create a profile
+So that I can be identified by others
+- [ ] Can set a profile picture
+- [ ] Can set a display name
+- [ ] Can set a status message
+- [ ] Am prompted to set a profile picture and display name on signup
 
 As a user
 I want to set my status
@@ -112,7 +122,7 @@ So I know who's available
 - [ ] See status in message headers
 - [ ] See status in member lists
 
-## 6. Thread Support
+## 7. Thread Support
 
 As a user
 I want to create message threads
@@ -135,7 +145,7 @@ So I can follow conversations easily
 - [ ] Can return to main channel view
 - [ ] Can share thread links
 
-## 7. Emoji Reactions
+## 8. Emoji Reactions
 
 As a user
 I want to react to messages
@@ -148,7 +158,7 @@ So I can respond quickly and expressively
 - [ ] Can see most used reactions first
 - [ ] Can search emoji picker
 
-## 8. Search
+## 9. Search
 
 As a user
 I want to search content

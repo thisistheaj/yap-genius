@@ -8,6 +8,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { Checkbox } from "~/components/ui/checkbox";
 
 type ActionData = {
   errors: {
@@ -22,6 +23,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
+  const isPrivate = formData.get("private") === "on";
 
   const errors: ActionData["errors"] = {};
 
@@ -41,7 +43,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const channel = await createChannel({
       name,
       description,
-      type: "public",
+      type: isPrivate ? "private" : "public",
       createdBy: userId,
     });
 
@@ -117,6 +119,13 @@ export default function NewChannel() {
                   {actionData.errors.description}
                 </div>
               ) : null}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox name="private" id="private" />
+              <label htmlFor="private" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Make this channel private
+              </label>
             </div>
 
             {actionData?.errors?.form ? (

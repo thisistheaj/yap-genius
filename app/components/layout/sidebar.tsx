@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "~/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { StarIcon } from "~/components/icons/star-icon";
+import { Lock } from "lucide-react";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   isCollapsed?: boolean;
@@ -140,6 +141,9 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels }: Si
                       <Link to={`/app/c/${channel.name}`}>
                         <span className="text-muted-foreground mr-2">#</span>
                         {channel.name}
+                        {channel.type === "private" && (
+                          <Lock className="inline-block ml-2 h-3 w-3 text-muted-foreground" />
+                        )}
                       </Link>
                     </Button>
                     <Button
