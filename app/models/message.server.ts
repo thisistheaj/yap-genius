@@ -1,5 +1,6 @@
 import { prisma } from "~/db.server";
 import type { Message } from "~/types";
+import { emitMessageEvent } from "~/utils.server";
 
 export type { Message } from "~/types";
 
@@ -13,7 +14,7 @@ export async function createMessage({
   channelId: string;
 }): Promise<Message> {
   // @ts-ignore - Prisma types not recognizing message model
-  return prisma.message.create({
+  const message = await prisma.message.create({
     data: {
       content,
       userId,
@@ -32,6 +33,11 @@ export async function createMessage({
       }
     }
   });
+
+  // Emit event for real-time updates
+  emitMessageEvent(channelId, message);
+
+  return message;
 }
 
 export async function getChannelMessages(channelId: string): Promise<Message[]> {

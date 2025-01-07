@@ -1,7 +1,8 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Form, isRouteErrorResponse, useLoaderData, useRouteError } from "@remix-run/react";
+import { Form, isRouteErrorResponse, useLoaderData, useRouteError, useRevalidator } from "@remix-run/react";
 import invariant from "tiny-invariant";
+import { useEffect } from "react";
 
 import { getChannel } from "~/models/channel.server";
 import { createMessage, getChannelMessages } from "~/models/message.server";
@@ -59,6 +60,23 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 
 export default function ChannelPage() {
   const { channel, messages } = useLoaderData<typeof loader>();
+  const revalidator = useRevalidator();
+
+  useEffect(() => {
+    // Connect to SSE endpoint
+    const eventSource = new EventSource(`/messages/subscribe?channelId=${channel.id}`);
+    
+    // Listen for message events
+    eventSource.addEventListener("message", () => {
+      // Refresh data when message received
+      revalidator.revalidate();
+    });
+
+    // Cleanup on unmount
+    return () => {
+      eventSource.close();
+    };
+  }, [channel.id, revalidator]);
 
   return (
     <div className="flex flex-col h-full">
