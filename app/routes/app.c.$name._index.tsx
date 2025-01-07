@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Form, isRouteErrorResponse, useLoaderData, useRouteError, useRevalidator } from "@remix-run/react";
+import { Link, Form, isRouteErrorResponse, useLoaderData, useRouteError, useRevalidator } from "@remix-run/react";
 import invariant from "tiny-invariant";
 import { useEffect } from "react";
 
@@ -15,6 +15,7 @@ import type { Channel, Message } from "~/types";
 type LoaderData = {
   channel: Channel;
   messages: Message[];
+  isOwner: boolean;
 };
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
@@ -27,7 +28,9 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   }
 
   const messages = await getChannelMessages(channel.id);
-  return json<LoaderData>({ channel, messages });
+  const isOwner = channel.createdBy === userId;
+  
+  return json<LoaderData>({ channel, messages, isOwner });
 };
 
 export const action = async ({ params, request }: ActionFunctionArgs) => {
@@ -59,7 +62,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 };
 
 export default function ChannelPage() {
-  const { channel, messages } = useLoaderData<typeof loader>();
+  const { channel, messages, isOwner } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
 
   useEffect(() => {
@@ -92,6 +95,13 @@ export default function ChannelPage() {
               <p className="text-sm text-muted-foreground">{channel.description}</p>
             )}
           </div>
+          {isOwner && (
+            <Button variant="outline" size="sm" asChild>
+              <Link to={`/app/c/${channel.name}/settings`}>
+                Settings
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

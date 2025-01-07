@@ -5,81 +5,78 @@
 As a new user
 I want to create an account
 So that I can access the messaging platform
-- [ ] Can register with email and password
+- [x] Can register with email and password
 - [ ] Get feedback on password strength
 - [ ] Get notified of duplicate email/username
 
 As a registered user
 I want to log in to my account
 So that I can access my messages and channels
-- [ ] Can log in with email/username and password
-- [ ] Stay logged in across browser sessions
+- [x] Can log in with email/username and password
+- [x] Stay logged in across browser sessions
 - [ ] Can request password reset
-- [ ] Get notified of failed login attempts
-- [ ] Can log out from current session
+- [x] Can log out from current session
 
 ## 2. Real-time Messaging
 
 As a user
 I want to send messages
 So that I can communicate with others
-- [ ] Can send text messages
-- [ ] See messages appear immediately
-- [ ] Can edit my messages
-- [ ] Can delete my messages
-- [ ] See "edited" indicator on edited messages
+- [x] Can send text messages
+- [x] See messages appear immediately
+- [ ] Can edit my messages *
+- [ ] Can delete my messages *
+- [ ] See "edited" indicator on edited messages *
 - [ ] See delivery confirmation
-- [ ] Support markdown formatting
 
 As a user
 I want to receive messages
 So that I can stay updated on conversations
-- [ ] See new messages in real-time
-- [ ] Get notifications for new messages
-- [ ] See message timestamps
-- [ ] Messages persist after refresh
-- [ ] Can copy message content
-- [ ] Can share message links
+- [x] See new messages in real-time
+- [x] See message timestamps
+- [x] Messages persist after refresh
+- [ ] Can copy message content *
+- [ ] Can share message links *
 
 ## 3. Channel/DM Organization
 
 As a user
 I want to create and manage channels
 So that I can organize conversations
-- [ ] Can create public channels
-- [ ] Can create private channels
-- [ ] Can set channel names and descriptions
-- [ ] Can invite others to channels
-- [ ] Can leave channels
-- [ ] Can see member list
+- [x] Can create public channels
+- [x] Can set channel names and descriptions
+- [ ] Can invite others to channels **
+- [ ] Can see member list **
+- [ ] Can create private channels *
 
 As a user
 I want to search and join public channels
 So that I can find new conversations
-- [ ] Can search channels by name
-- [ ] Can see channel descriptions
-- [ ] Can join public channels
-- [ ] Can see member count
-- [ ] Can preview recent messages
+- [ ] Can search channels by name ***
+- [x] Can see channel descriptions
+- [ ] Can join public channels ***
+- [ ] Can leave channels ***
 
 As a user
 I want to start direct messages
 So that I can have private conversations
+- [ ] Can search for users to DM
 - [ ] Can start DM with one or more users
 - [ ] Can add people to existing DM
 - [ ] Can leave DM conversations
 - [ ] Can see when others leave/join
-- [ ] DMs appear in sidebar
-- [ ] Can search for users to DM
+- [x] DMs appear in sidebar
 
 As a user
 I want to organize my channels/DMs
 So that I can easily find conversations
-- [ ] Can mark channels as favorites
-- [ ] Can mute channels/DMs
-- [ ] Can archive channels
+- [x] Can archive channels
+- [x] Can set channel description
+- [x] Can edit channel description and name
+- [ ] Can mark channels as favorites **
 - [ ] Can see unread indicators
 - [ ] Can sort channels by activity
+- [ ] Can mute channels/DMs
 
 ## 4. File Sharing
 
