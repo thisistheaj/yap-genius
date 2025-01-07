@@ -16,8 +16,8 @@ export default function Index() {
             <div className="absolute inset-0">
               <img
                 className="h-full w-full object-cover"
-                src="https://random.imagecdn.app/1500/500"
-                alt="Team collaboration"
+                src=""
+                alt=""
               />
               <div className="absolute inset-0 bg-indigo-500/50 mix-blend-multiply" />
             </div>

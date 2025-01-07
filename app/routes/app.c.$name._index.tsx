@@ -95,13 +95,21 @@ export default function ChannelPage() {
               <p className="text-sm text-muted-foreground">{channel.description}</p>
             )}
           </div>
-          {isOwner && (
-            <Button variant="outline" size="sm" asChild>
-              <Link to={`/app/c/${channel.name}/settings`}>
-                Settings
-              </Link>
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {isOwner ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link to={`/app/c/${channel.name}/settings`}>
+                  Settings
+                </Link>
+              </Button>
+            ) : (
+              <Form method="post" action={`/app/c/${channel.name}/leave`}>
+                <Button variant="outline" size="sm" type="submit">
+                  Leave Channel
+                </Button>
+              </Form>
+            )}
+          </div>
         </div>
       </div>
 

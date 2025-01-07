@@ -1,4 +1,4 @@
-import { Link } from "@remix-run/react";
+import { Link, useFetcher } from "@remix-run/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
 import { cn } from "~/lib/utils";
@@ -7,16 +7,23 @@ import { useUser } from "~/utils";
 import { UserProfile } from "~/components/layout/user-profile";
 import { useParams } from "@remix-run/react";
 import type { Channel } from "~/models/channel.server";
+import { Input } from "~/components/ui/input";
+import { useState } from "react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "~/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   isCollapsed?: boolean;
   channels: Channel[];
+  publicChannels: Channel[];
 }
 
-export function Sidebar({ className, isCollapsed, channels }: SidebarProps) {
+export function Sidebar({ className, isCollapsed, channels, publicChannels }: SidebarProps) {
   const user = useUser();
   const params = useParams();
   const currentChannelId = params.id;
+  const [open, setOpen] = useState(false);
+  const fetcher = useFetcher();
   
   return (
     <div className={cn("flex h-full flex-col", className)}>
@@ -64,7 +71,48 @@ export function Sidebar({ className, isCollapsed, channels }: SidebarProps) {
           </div>
           <Separator />
           <div className="px-3 py-2">
-            <h2 className="mb-2 px-4 text-lg font-semibold">Channels</h2>
+            <div className="flex items-center justify-between mb-2 px-4">
+              <h2 className="text-lg font-semibold">Channels</h2>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm">Browse</Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search channels..." />
+                    <CommandList>
+                      <CommandEmpty>No channels found.</CommandEmpty>
+                      <CommandGroup heading="Available Channels">
+                        {publicChannels?.map((channel) => (
+                          <CommandItem
+                            key={channel.id}
+                            value={channel.name}
+                            onSelect={(value) => {
+                              fetcher.submit(
+                                { channelName: value },
+                                { method: "post", action: "/app/c/join" }
+                              );
+                              setOpen(false);
+                            }}
+                            className="flex items-center justify-between cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground">#</span>
+                              <span>{channel.name}</span>
+                            </div>
+                            {channel.description && (
+                              <span className="text-xs text-muted-foreground truncate max-w-[160px]">
+                                {channel.description}
+                              </span>
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
             <div className="space-y-1">
               {channels?.map((channel) => (
                 <Button

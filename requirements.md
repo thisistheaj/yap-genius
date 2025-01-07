@@ -52,10 +52,10 @@ So that I can organize conversations
 As a user
 I want to search and join public channels
 So that I can find new conversations
-- [ ] Can search channels by name ***
+- [x] Can search channels by name
 - [x] Can see channel descriptions
-- [ ] Can join public channels ***
-- [ ] Can leave channels ***
+- [x] Can join public channels
+- [x] Can leave channels
 
 As a user
 I want to start direct messages

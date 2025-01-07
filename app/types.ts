@@ -1,38 +1,39 @@
 export interface User {
   id: string;
   email: string;
-  name?: string | null;
+  name?: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 export interface Channel {
   id: string;
   name: string;
-  type: "public" | "private" | "dm";
-  description?: string | null;
+  type: "public" | "private";
+  description?: string;
   createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-  lastActivity: Date;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  lastActivity: string | Date;
   members: ChannelMember[];
 }
 
 export interface ChannelMember {
-  channelId: string;
+  id: string;
   userId: string;
+  channelId: string;
   user: User;
-  lastRead?: Date | null;
-  isMuted: boolean;
-  joinedAt: Date;
-  leftAt?: Date | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 export interface Message {
   id: string;
   content: string;
-  createdAt: Date;
-  updatedAt: Date;
   userId: string;
-  user: User;
   channelId: string;
+  user: User;
   channel: Channel;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 } 

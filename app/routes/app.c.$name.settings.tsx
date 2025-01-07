@@ -1,14 +1,19 @@
 import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import { Form, useActionData, useLoaderData, useFetcher } from "@remix-run/react";
 import invariant from "tiny-invariant";
 import { prisma } from "~/db.server";
+import { useState } from "react";
 
-import { getChannel } from "~/models/channel.server";
+import { getChannel, searchUsers, addChannelMember, removeChannelMember } from "~/models/channel.server";
 import { requireUserId } from "~/session.server";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "~/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
+import { Avatar } from "~/components/shared/Avatar";
+import type { User } from "~/types";
 
 type ActionData = {
   errors?: {
@@ -32,7 +37,16 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
     throw new Response("Unauthorized", { status: 403 });
   }
 
-  return json({ channel });
+  const url = new URL(request.url);
+  const search = url.searchParams.get("search") ?? "";
+  let searchResults: User[] = [];
+  
+  const memberIds = channel.members.map(member => member.userId);
+  searchResults = await searchUsers(search, memberIds);
+  console.log('searchResults', searchResults);
+
+  console.log('Loader returning:', { channel, searchResults });
+  return json({ channel, searchResults });
 };
 
 export const action = async ({ params, request }: ActionFunctionArgs) => {
@@ -51,6 +65,28 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 
   const formData = await request.formData();
   const intent = formData.get("intent");
+
+  if (intent === "add-member") {
+    const memberId = formData.get("userId");
+    if (typeof memberId !== "string") {
+      return json({ error: "Invalid user ID" }, { status: 400 });
+    }
+    await addChannelMember(channel.id, memberId);
+    return json({ ok: true });
+  }
+
+  if (intent === "remove-member") {
+    const memberId = formData.get("userId");
+    if (typeof memberId !== "string") {
+      return json({ error: "Invalid user ID" }, { status: 400 });
+    }
+    // Don't allow removing the owner
+    if (memberId === channel.createdBy) {
+      return json({ error: "Cannot remove channel owner" }, { status: 400 });
+    }
+    await removeChannelMember(channel.id, memberId);
+    return json({ ok: true });
+  }
 
   if (intent === "delete") {
     try {
@@ -114,15 +150,18 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 };
 
 export default function ChannelSettings() {
-  const { channel } = useLoaderData<typeof loader>();
+  const { channel, searchResults } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
+  const [open, setOpen] = useState(false);
+  const fetcher = useFetcher();
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4">
-      <Card className="max-w-2xl w-full">
+    <div className="flex-1 p-4 space-y-4 max-w-2xl mx-auto">
+      {/* Channel Info Card */}
+      <Card>
         <CardHeader>
-          <CardTitle>Channel Settings</CardTitle>
-          <CardDescription>Manage your channel settings</CardDescription>
+          <CardTitle>Channel Information</CardTitle>
+          <CardDescription>Edit channel name and description</CardDescription>
         </CardHeader>
         <CardContent>
           <Form method="post" className="space-y-6">
@@ -175,19 +214,118 @@ export default function ChannelSettings() {
               </div>
             ) : null}
 
-            <div className="flex gap-4 justify-between">
-              <Form method="post">
-                <input type="hidden" name="intent" value="delete" />
-                <Button type="submit" variant="destructive">Delete Channel</Button>
-              </Form>
-
-              <div className="flex gap-4">
-                <Button type="button" variant="outline" onClick={() => window.history.back()}>
-                  Cancel
-                </Button>
-                <Button type="submit">Save Changes</Button>
-              </div>
+            <div className="flex gap-4 justify-end">
+              <Button type="button" variant="outline" onClick={() => window.history.back()}>
+                Cancel
+              </Button>
+              <Button type="submit">Save Changes</Button>
             </div>
+          </Form>
+        </CardContent>
+      </Card>
+
+      {/* Members Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Members</CardTitle>
+          <CardDescription>Manage channel members</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline">Add Members</Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0" align="start">
+                <Command>
+                  <CommandInput 
+                    placeholder="Search users..." 
+                    onValueChange={(search) => {
+                      fetcher.load(`/app/c/${channel.name}/settings?search=${encodeURIComponent(search)}`);
+                    }}
+                  />
+                  <CommandList>
+                    <CommandEmpty>No users found.</CommandEmpty>
+                    <CommandGroup>
+                      {searchResults?.map((user) => (
+                        <CommandItem
+                          key={user.id}
+                          onSelect={() => {
+                            fetcher.submit(
+                              { 
+                                intent: "add-member",
+                                userId: user.id 
+                              },
+                              { method: "post" }
+                            );
+                            setOpen(false);
+                          }}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <Avatar user={user} size="sm" />
+                          <div className="flex flex-col">
+                            <span>{user.name || "Unnamed User"}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {user.email}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="border rounded-lg divide-y">
+            {channel.members.map((member) => (
+              <div
+                key={member.userId}
+                className="flex items-center justify-between p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar user={member.user} size="sm" />
+                  <div className="flex flex-col">
+                    <span>{member.user.name || "Unnamed User"}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {member.user.email}
+                    </span>
+                  </div>
+                </div>
+                {member.userId !== channel.createdBy && (
+                  <fetcher.Form method="post">
+                    <input type="hidden" name="intent" value="remove-member" />
+                    <input type="hidden" name="userId" value={member.userId} />
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                      Remove
+                    </Button>
+                  </fetcher.Form>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Danger Zone Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-red-600">Danger Zone</CardTitle>
+          <CardDescription>Destructive actions for this channel</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form method="post">
+            <input type="hidden" name="intent" value="delete" />
+            <Button type="submit" variant="destructive" className="w-full">Delete Channel</Button>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This action cannot be undone. All messages and member data will be permanently deleted.
+            </p>
           </Form>
         </CardContent>
       </Card>
