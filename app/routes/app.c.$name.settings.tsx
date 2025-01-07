@@ -43,9 +43,6 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   
   const memberIds = channel.members.map(member => member.userId);
   searchResults = await searchUsers(search, memberIds);
-  console.log('searchResults', searchResults);
-
-  console.log('Loader returning:', { channel, searchResults });
   return json({ channel, searchResults });
 };
 

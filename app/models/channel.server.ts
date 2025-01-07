@@ -176,8 +176,6 @@ export async function leaveChannel(userId: string, channelName: string): Promise
 
 export async function searchUsers(query: string, excludeUserIds: string[] = []): Promise<User[]> {
   // @ts-ignore - Prisma types not recognizing user model
-  console.log('query', query);
-  console.log('excludeUserIds', excludeUserIds);
   const users = await prisma.user.findMany({
     where: {
       id: {
@@ -192,7 +190,6 @@ export async function searchUsers(query: string, excludeUserIds: string[] = []):
     },
     take: 5,
   });
-  console.log('users', users);
   return users;
 }
 

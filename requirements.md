@@ -24,9 +24,9 @@ I want to send messages
 So that I can communicate with others
 - [x] Can send text messages
 - [x] See messages appear immediately
-- [ ] Can edit my messages *
-- [ ] Can delete my messages *
-- [ ] See "edited" indicator on edited messages *
+- [ ] Can edit my messages **
+- [ ] Can delete my messages **
+- [ ] See "edited" indicator on edited messages **
 - [ ] See delivery confirmation
 
 As a user
@@ -35,8 +35,8 @@ So that I can stay updated on conversations
 - [x] See new messages in real-time
 - [x] See message timestamps
 - [x] Messages persist after refresh
-- [ ] Can copy message content *
-- [ ] Can share message links *
+- [ ] Can copy message content **
+- [ ] Can share message links **
 
 ## 3. Channel/DM Organization
 
@@ -45,9 +45,9 @@ I want to create and manage channels
 So that I can organize conversations
 - [x] Can create public channels
 - [x] Can set channel names and descriptions
-- [ ] Can invite others to channels **
-- [ ] Can see member list **
-- [ ] Can create private channels *
+- [x] Can invite others to channels
+- [x] Can see member list
+- [ ] Can create private channels **
 
 As a user
 I want to search and join public channels
@@ -73,7 +73,7 @@ So that I can easily find conversations
 - [x] Can archive channels
 - [x] Can set channel description
 - [x] Can edit channel description and name
-- [ ] Can mark channels as favorites **
+- [ ] Can mark channels as favorites ***
 - [ ] Can see unread indicators
 - [ ] Can sort channels by activity
 - [ ] Can mute channels/DMs
