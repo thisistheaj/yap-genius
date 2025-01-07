@@ -38,7 +38,7 @@ export async function getChannelMessages(channelId: string): Promise<Message[]> 
   // @ts-ignore - Prisma types not recognizing message model
   return prisma.message.findMany({
     where: { channelId },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: "asc" },
     take: 50,
     include: {
       user: true,

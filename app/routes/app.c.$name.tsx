@@ -78,23 +78,25 @@ export default function ChannelPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div key={message.id} className="flex gap-3">
-            <Avatar user={message.user} size="sm" />
-            <div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-medium text-sm">
-                  {message.user.name || message.user.email}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(message.createdAt).toLocaleTimeString()}
-                </span>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse">
+        <div className="space-y-4">
+          {messages.map((message) => (
+            <div key={message.id} className="flex gap-3">
+              <Avatar user={message.user} size="sm" />
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-medium text-sm">
+                    {message.user.name || message.user.email}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(message.createdAt).toLocaleTimeString()}
+                  </span>
+                </div>
+                <p className="text-sm">{message.content}</p>
               </div>
-              <p className="text-sm">{message.content}</p>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {/* Message Input */}
