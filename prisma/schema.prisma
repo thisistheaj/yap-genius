@@ -1,38 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model User {
-  id    String @id @default(cuid())
-  email String @unique
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  password Password?
-  notes    Note[]
+  id              String          @id @default(cuid())
+  email           String          @unique
+  username        String?         @unique
+  displayName     String?
+  password        Password?
+  avatarUrl       String?
+  status          String?
+  lastSeen        DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdChannels Channel[]       @relation("ChannelCreator")
+  channels        ChannelMember[]
+  messages        Message[]
 }
 
 model Password {
-  hash String
-
+  hash   String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   userId String @unique
 }
 
-model Note {
-  id    String @id @default(cuid())
-  title String
-  body  String
+model Channel {
+  id           String          @id @default(cuid())
+  name         String          @unique
+  type         String
+  description  String?
+  createdBy    String
+  lastActivity DateTime        @default(now())
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  creator      User            @relation("ChannelCreator", fields: [createdBy], references: [id])
+  members      ChannelMember[]
+  messages     Message[]
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model ChannelMember {
+  channelId String
+  userId    String
+  lastRead  DateTime?
+  isMuted   Boolean   @default(false)
+  joinedAt  DateTime  @default(now())
+  leftAt    DateTime?
+  user      User      @relation(fields: [userId], references: [id])
+  channel   Channel   @relation(fields: [channelId], references: [id])
 
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  userId String
+  @@id([channelId, userId])
+}
+
+model Message {
+  id        String    @id @default(cuid())
+  channelId String
+  userId    String
+  content   String
+  parentId  String?
+  editedAt  DateTime?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  parent    Message?  @relation("ThreadMessages", fields: [parentId], references: [id])
+  replies   Message[] @relation("ThreadMessages")
+  user      User      @relation(fields: [userId], references: [id])
+  channel   Channel   @relation(fields: [channelId], references: [id])
 }
