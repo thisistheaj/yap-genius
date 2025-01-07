@@ -11,6 +11,7 @@ import { Input } from "~/components/ui/input";
 import { useState } from "react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "~/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
+import { StarIcon } from "~/components/icons/star-icon";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   isCollapsed?: boolean;
@@ -24,7 +25,23 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels }: Si
   const currentChannelId = params.id;
   const [open, setOpen] = useState(false);
   const fetcher = useFetcher();
-  
+
+  // Sort channels with favorites first
+  const sortedChannels = [...channels].sort((a, b) => {
+    const aIsFavorite = a.members.some(m => m.userId === user.id && m.isFavorite);
+    const bIsFavorite = b.members.some(m => m.userId === user.id && m.isFavorite);
+    if (aIsFavorite && !bIsFavorite) return -1;
+    if (!aIsFavorite && bIsFavorite) return 1;
+    return 0;
+  });
+
+  const handleToggleFavorite = (channelId: string) => {
+    fetcher.submit(
+      { channelId },
+      { method: "post", action: "/app/c/favorite" }
+    );
+  };
+
   return (
     <div className={cn("flex h-full flex-col", className)}>
       <ScrollArea className="flex-1">
@@ -98,13 +115,8 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels }: Si
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-muted-foreground">#</span>
-                              <span>{channel.name}</span>
+                              {channel.name}
                             </div>
-                            {channel.description && (
-                              <span className="text-xs text-muted-foreground truncate max-w-[160px]">
-                                {channel.description}
-                              </span>
-                            )}
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -114,22 +126,33 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels }: Si
               </Popover>
             </div>
             <div className="space-y-1">
-              {channels?.map((channel) => (
-                <Button
-                  key={channel.id}
-                  asChild
-                  variant="ghost"
-                  className={cn(
-                    "w-full justify-start",
-                    currentChannelId === channel.id && "bg-muted"
-                  )}
-                >
-                  <Link to={`/app/c/${channel.name}`}>
-                    <span className="mr-2 text-muted-foreground">#</span>
-                    {channel.name}
-                  </Link>
-                </Button>
-              ))}
+              {sortedChannels?.map((channel) => {
+                const isActive = channel.name === params.name;
+                const isFavorite = channel.members.some(m => m.userId === user.id && m.isFavorite);
+                
+                return (
+                  <div key={channel.id} className="flex items-center">
+                    <Button
+                      asChild
+                      variant={isActive ? "secondary" : "ghost"}
+                      className="w-full justify-start"
+                    >
+                      <Link to={`/app/c/${channel.name}`}>
+                        <span className="text-muted-foreground mr-2">#</span>
+                        {channel.name}
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="px-2"
+                      onClick={() => handleToggleFavorite(channel.id)}
+                    >
+                      <StarIcon className="h-4 w-4" filled={isFavorite} />
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           </div>
           <Separator />
@@ -147,7 +170,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels }: Si
           </div>
         </div>
       </ScrollArea>
-      <UserProfile user={user} />
+      <UserProfile user={user} className="border-t" />
     </div>
   );
 } 

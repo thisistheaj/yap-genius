@@ -48,6 +48,7 @@ model ChannelMember {
   userId    String
   lastRead  DateTime?
   isMuted   Boolean   @default(false)
+  isFavorite Boolean  @default(false)
   joinedAt  DateTime  @default(now())
   leftAt    DateTime?
   user      User      @relation(fields: [userId], references: [id])

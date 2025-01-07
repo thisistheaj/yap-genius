@@ -23,6 +23,9 @@ export interface ChannelMember {
   userId: string;
   channelId: string;
   user: User;
+  isMuted: boolean;
+  isFavorite: boolean;
+  lastRead?: string | Date;
   createdAt: string | Date;
   updatedAt: string | Date;
 }

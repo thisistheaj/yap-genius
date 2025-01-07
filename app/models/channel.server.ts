@@ -2,7 +2,6 @@ import { prisma } from "~/db.server";
 import type { Channel, User } from "~/types";
 export type { Channel };
 
-// @ts-ignore - Prisma types not recognizing channel model
 export async function createChannel({ 
   name, 
   type = "public",
@@ -14,8 +13,7 @@ export async function createChannel({
   type?: Channel["type"];
   createdBy: string;
 }): Promise<Channel> {
-  // @ts-ignore - Prisma types not recognizing channel model
-  return prisma.channel.create({
+  const channel = await prisma.channel.create({
     data: { 
       name, 
       type, 
@@ -35,12 +33,11 @@ export async function createChannel({
       }
     }
   });
+  return channel as unknown as Channel;
 }
 
-// @ts-ignore - Prisma types not recognizing channel model
 export async function getChannels(userId: string): Promise<Channel[]> {
-  // @ts-ignore - Prisma types not recognizing channel model
-  return prisma.channel.findMany({
+  const channels = await prisma.channel.findMany({
     where: {
       members: {
         some: {
@@ -48,20 +45,30 @@ export async function getChannels(userId: string): Promise<Channel[]> {
         }
       }
     },
-    orderBy: { lastActivity: "desc" },
     include: {
       members: {
         include: {
           user: true
-        },
-      },
+        }
+      }
     },
+    orderBy: {
+      lastActivity: "desc"
+    }
+  });
+
+  // Sort channels with favorites first
+  return (channels as unknown as Channel[]).sort((a, b) => {
+    const aIsFavorite = a.members.some(m => m.userId === userId && m.isFavorite);
+    const bIsFavorite = b.members.some(m => m.userId === userId && m.isFavorite);
+    if (aIsFavorite && !bIsFavorite) return -1;
+    if (!aIsFavorite && bIsFavorite) return 1;
+    return 0;
   });
 }
 
 export async function getPublicChannels(userId: string): Promise<Channel[]> {
-  // @ts-ignore - Prisma types not recognizing channel model
-  return prisma.channel.findMany({
+  const channels = await prisma.channel.findMany({
     where: {
       type: "public",
       members: {
@@ -79,12 +86,11 @@ export async function getPublicChannels(userId: string): Promise<Channel[]> {
       },
     },
   });
+  return channels as unknown as Channel[];
 }
 
-// @ts-ignore - Prisma types not recognizing channel model
 export async function getChannel(name: string): Promise<Channel | null> {
-  // @ts-ignore - Prisma types not recognizing channel model
-  return prisma.channel.findUnique({
+  const channel = await prisma.channel.findUnique({
     where: { name },
     include: {
       members: {
@@ -94,6 +100,7 @@ export async function getChannel(name: string): Promise<Channel | null> {
       }
     }
   });
+  return channel as unknown as Channel | null;
 }
 
 // Seed function that creates default channels if they don't exist
@@ -105,13 +112,12 @@ export async function ensureDefaultChannels(userId: string) {
   ];
 
   for (const channel of defaults) {
-    // @ts-ignore - Prisma types not recognizing channel model
     await prisma.channel.upsert({
       where: { name: channel.name },
       update: {},
       create: {
         name: channel.name,
-        type: "public",
+        type: "public" as const,
         createdBy: userId,
         description: channel.description,
         members: {
@@ -129,8 +135,7 @@ export async function joinChannel(userId: string, channelName: string): Promise<
   if (!channel) throw new Error("Channel not found");
   if (channel.type !== "public") throw new Error("Cannot join private channel");
 
-  // @ts-ignore - Prisma types not recognizing channel model
-  return prisma.channel.update({
+  const updatedChannel = await prisma.channel.update({
     where: { name: channelName },
     data: {
       members: {
@@ -147,6 +152,7 @@ export async function joinChannel(userId: string, channelName: string): Promise<
       }
     }
   });
+  return updatedChannel as unknown as Channel;
 }
 
 export async function leaveChannel(userId: string, channelName: string): Promise<Channel> {
@@ -154,8 +160,7 @@ export async function leaveChannel(userId: string, channelName: string): Promise
   if (!channel) throw new Error("Channel not found");
   if (channel.createdBy === userId) throw new Error("Channel creator cannot leave channel");
 
-  // @ts-ignore - Prisma types not recognizing channel model
-  return prisma.channel.update({
+  const updatedChannel = await prisma.channel.update({
     where: { name: channelName },
     data: {
       members: {
@@ -172,11 +177,11 @@ export async function leaveChannel(userId: string, channelName: string): Promise
       }
     }
   });
+  return updatedChannel as unknown as Channel;
 }
 
 export async function searchUsers(query: string, excludeUserIds: string[] = []): Promise<User[]> {
-  // @ts-ignore - Prisma types not recognizing user model
-  const users = await prisma.user.findMany({
+  return prisma.user.findMany({
     where: {
       id: {
         notIn: excludeUserIds
@@ -190,11 +195,9 @@ export async function searchUsers(query: string, excludeUserIds: string[] = []):
     },
     take: 5,
   });
-  return users;
 }
 
 export async function addChannelMember(channelId: string, userId: string) {
-  // @ts-ignore - Prisma types not recognizing channel model
   return prisma.channelMember.create({
     data: {
       channelId,
@@ -207,7 +210,6 @@ export async function addChannelMember(channelId: string, userId: string) {
 }
 
 export async function removeChannelMember(channelId: string, userId: string) {
-  // @ts-ignore - Prisma types not recognizing channel model
   return prisma.channelMember.delete({
     where: {
       channelId_userId: {
@@ -215,5 +217,32 @@ export async function removeChannelMember(channelId: string, userId: string) {
         userId,
       },
     },
+  });
+}
+
+export async function toggleChannelFavorite(userId: string, channelId: string): Promise<void> {
+  const member = await prisma.channelMember.findUnique({
+    where: {
+      channelId_userId: {
+        channelId,
+        userId,
+      },
+    },
+  }) as { isFavorite: boolean } | null;
+
+  if (!member) {
+    throw new Error("User is not a member of this channel");
+  }
+
+  await prisma.channelMember.update({
+    where: {
+      channelId_userId: {
+        channelId,
+        userId,
+      },
+    },
+    data: {
+      isFavorite: !member.isFavorite,
+    } as any,
   });
 } 

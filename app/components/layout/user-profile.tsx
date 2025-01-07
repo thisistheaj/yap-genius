@@ -1,17 +1,19 @@
 import { Form } from "@remix-run/react";
 import { Button } from "~/components/ui/button";
 import { Avatar } from "~/components/shared/Avatar";
+import { cn } from "~/lib/utils";
 
 interface UserProfileProps {
   user: {
     email: string;
     name?: string | null;
   };
+  className?: string;
 }
 
-export function UserProfile({ user }: UserProfileProps) {
+export function UserProfile({ user, className }: UserProfileProps) {
   return (
-    <div className="border-t p-4">
+    <div className={cn("p-4", className)}>
       <div className="flex items-center gap-3">
         <Avatar user={user} size="sm" />
         <div className="flex-1 min-w-0">

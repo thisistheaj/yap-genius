@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Link, Form, isRouteErrorResponse, useLoaderData, useRouteError, useRevalidator } from "@remix-run/react";
+import { Link, Form, isRouteErrorResponse, useLoaderData, useRouteError, useRevalidator, useFetcher } from "@remix-run/react";
 import invariant from "tiny-invariant";
 import { useEffect } from "react";
 
@@ -10,6 +10,8 @@ import { requireUserId } from "~/session.server";
 import { Avatar } from "~/components/shared/Avatar";
 import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
+import { StarIcon } from "~/components/icons/star-icon";
+import { useUser } from "~/utils";
 import type { Channel, Message } from "~/types";
 
 type LoaderData = {
@@ -64,6 +66,10 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 export default function ChannelPage() {
   const { channel, messages, isOwner } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
+  const user = useUser();
+  const fetcher = useFetcher();
+
+  const isFavorite = channel.members.some(m => m.userId === user.id && m.isFavorite);
 
   useEffect(() => {
     // Connect to SSE endpoint
@@ -86,11 +92,24 @@ export default function ChannelPage() {
       {/* Channel Header */}
       <div className="border-b p-4">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <span className="text-muted-foreground">#</span>
               {channel.name}
             </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-2"
+              onClick={() => {
+                fetcher.submit(
+                  { channelId: channel.id },
+                  { method: "post", action: "/app/c/favorite" }
+                );
+              }}
+            >
+              <StarIcon className="h-4 w-4" filled={isFavorite} />
+            </Button>
             {channel.description && (
               <p className="text-sm text-muted-foreground">{channel.description}</p>
             )}
