@@ -2,9 +2,10 @@
 
 ## Todos:
 
-- [ ] Deploy to Railway
-- [ ] Push to GitHub
-- [ ] make notes
+- [x] Deploy to Railway
+- [ ] fixup channels
+- [x] Push to GitHub
+- [x] make notes
 - [ ] record loom
 
 
@@ -12,6 +13,7 @@
 
 - process claude => stack => tester => deploy
 - deploy/auth/db first 
+- docs folder
 - stack: 
     - remix/indiestack  
     - SSE (Server Sent Events)
