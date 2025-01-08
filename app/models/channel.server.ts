@@ -39,6 +39,7 @@ export async function createChannel({
 export async function getChannels(userId: string): Promise<Channel[]> {
   const channels = await prisma.channel.findMany({
     where: {
+      type: { in: ["public", "private"] },
       members: {
         some: {
           userId
@@ -92,6 +93,20 @@ export async function getPublicChannels(userId: string): Promise<Channel[]> {
 export async function getChannel(name: string): Promise<Channel | null> {
   const channel = await prisma.channel.findUnique({
     where: { name },
+    include: {
+      members: {
+        include: {
+          user: true
+        }
+      }
+    }
+  });
+  return channel as unknown as Channel | null;
+}
+
+export async function getChannelById(id: string): Promise<Channel | null> {
+  const channel = await prisma.channel.findUnique({
+    where: { id },
     include: {
       members: {
         include: {
@@ -181,20 +196,26 @@ export async function leaveChannel(userId: string, channelName: string): Promise
 }
 
 export async function searchUsers(query: string, excludeUserIds: string[] = []): Promise<User[]> {
-  return prisma.user.findMany({
+  console.log("Search params:", { query, excludeUserIds }); // Debug log
+  const searchQuery = query.toLowerCase();
+  const users = await prisma.user.findMany({
     where: {
       id: {
         notIn: excludeUserIds
       },
-      ...(query ? {
-        email: { contains: query }
-      } : {})
+      OR: [
+        { email: { contains: searchQuery } },
+        { username: { contains: searchQuery } },
+        { displayName: { contains: searchQuery } }
+      ]
     },
     orderBy: {
       email: 'asc'
     },
     take: 5,
   });
+  console.log("Found users:", users); // Debug log
+  return users as unknown as User[];
 }
 
 export async function addChannelMember(channelId: string, userId: string) {
@@ -245,4 +266,119 @@ export async function toggleChannelFavorite(userId: string, channelId: string): 
       isFavorite: !member.isFavorite,
     } as any,
   });
+}
+
+export async function createDM({
+  userId,
+  otherUserId,
+}: {
+  userId: string;
+  otherUserId: string;
+}): Promise<Channel> {
+  // Check if DM already exists
+  const existingDM = await prisma.channel.findFirst({
+    where: {
+      type: "DM",
+      AND: [
+        { members: { some: { userId } } },
+        { members: { some: { userId: otherUserId } } }
+      ],
+      members: {
+        every: {
+          userId: { in: [userId, otherUserId] }
+        }
+      }
+    },
+    include: {
+      members: {
+        include: {
+          user: true
+        }
+      }
+    }
+  });
+
+  if (existingDM) {
+    return existingDM as unknown as Channel;
+  }
+
+  // Create new DM
+  const channel = await prisma.channel.create({
+    data: {
+      type: "DM",
+      name: `dm-${userId}-${otherUserId}`, // Internal name, not shown to users
+      createdBy: userId,
+      members: {
+        create: [
+          { userId },
+          { userId: otherUserId }
+        ]
+      }
+    },
+    include: {
+      members: {
+        include: {
+          user: true
+        }
+      }
+    }
+  });
+
+  return channel as unknown as Channel;
+}
+
+export async function createGroupDM({
+  userId,
+  memberIds,
+}: {
+  userId: string;
+  memberIds: string[];
+}): Promise<Channel> {
+  const channel = await prisma.channel.create({
+    data: {
+      type: "GROUP_DM",
+      name: `group-dm-${Date.now()}`, // Internal name, not shown to users
+      createdBy: userId,
+      members: {
+        create: [
+          { userId },
+          ...memberIds.map(memberId => ({ userId: memberId }))
+        ]
+      }
+    },
+    include: {
+      members: {
+        include: {
+          user: true
+        }
+      }
+    }
+  });
+
+  return channel as unknown as Channel;
+}
+
+export async function getDMs(userId: string): Promise<Channel[]> {
+  const dms = await prisma.channel.findMany({
+    where: {
+      type: { in: ["DM", "GROUP_DM"] },
+      members: {
+        some: {
+          userId
+        }
+      }
+    },
+    include: {
+      members: {
+        include: {
+          user: true
+        }
+      }
+    },
+    orderBy: {
+      lastActivity: "desc"
+    }
+  });
+
+  return dms as unknown as Channel[];
 } 

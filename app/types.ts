@@ -13,7 +13,7 @@ export interface User {
 export interface Channel {
   id: string;
   name: string;
-  type: "public" | "private";
+  type: "public" | "private" | "DM" | "GROUP_DM";
   description?: string;
   createdBy: string;
   createdAt: string | Date;

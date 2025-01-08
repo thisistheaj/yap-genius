@@ -18,12 +18,12 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   isCollapsed?: boolean;
   channels: Channel[];
   publicChannels: Channel[];
+  dms: Channel[];
 }
 
-export function Sidebar({ className, isCollapsed, channels, publicChannels }: SidebarProps) {
+export function Sidebar({ className, isCollapsed, channels, publicChannels, dms }: SidebarProps) {
   const user = useUser();
   const params = useParams();
-  const currentChannelId = params.id;
   const [open, setOpen] = useState(false);
   const fetcher = useFetcher();
 
@@ -41,6 +41,15 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels }: Si
       { channelId },
       { method: "post", action: "/app/c/favorite" }
     );
+  };
+
+  const getDMDisplayName = (channel: Channel) => {
+    const otherMembers = channel.members.filter(m => m.userId !== user.id);
+    if (channel.type === "DM") {
+      const otherUser = otherMembers[0].user;
+      return otherUser.displayName || otherUser.email;
+    }
+    return `Group: ${otherMembers.map(m => m.user.displayName || m.user.email).join(", ")}`;
   };
 
   return (
@@ -112,7 +121,6 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels }: Si
                               );
                               setOpen(false);
                             }}
-                            className="flex items-center justify-between cursor-pointer hover:bg-accent hover:text-accent-foreground"
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-muted-foreground">#</span>
@@ -161,15 +169,37 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels }: Si
           </div>
           <Separator />
           <div className="px-3 py-2">
-            <h2 className="mb-2 px-4 text-lg font-semibold">Direct Messages</h2>
-            <div className="space-y-1">
-              {/* We'll populate this with actual DMs later */}
-              <Button asChild variant="ghost" className="w-full justify-start">
-                <Link to="/app/dm/example">
-                  <div className="mr-2 h-2 w-2 rounded-full bg-green-500" />
-                  John Doe
-                </Link>
+            <div className="flex items-center justify-between mb-2 px-4">
+              <h2 className="text-lg font-semibold">Direct Messages</h2>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/app/dm/new">New</Link>
               </Button>
+            </div>
+            <div className="space-y-1">
+              {dms?.map((dm) => {
+                const isActive = dm.id === params.id;
+                const otherMembers = dm.members.filter(m => m.userId !== user.id);
+                const displayName = getDMDisplayName(dm);
+                const isOnline = otherMembers.some(m => m.user.lastSeen && 
+                  new Date(m.user.lastSeen).getTime() > Date.now() - 5 * 60 * 1000);
+                
+                return (
+                  <Button
+                    key={dm.id}
+                    asChild
+                    variant={isActive ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                  >
+                    <Link to={`/app/dm/${dm.id}`}>
+                      <div className={cn(
+                        "mr-2 h-2 w-2 rounded-full",
+                        isOnline ? "bg-green-500" : "bg-muted"
+                      )} />
+                      {displayName}
+                    </Link>
+                  </Button>
+                );
+              })}
             </div>
           </div>
         </div>

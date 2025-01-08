@@ -62,11 +62,10 @@ So that I can find new conversations
 As a user
 I want to start direct messages
 So that I can have private conversations
-- [ ] Can search for users to DM
-- [ ] Can start DM with one or more users
-- [ ] Can add people to existing DM
-- [ ] Can leave DM conversations
-- [ ] Can see when others leave/join
+- [x] Can search for users to DM
+- [x] Can start DM with one or more users
+- [x] Can add people to existing DM
+- [x] Can leave DM conversations
 - [x] DMs appear in sidebar
 
 As a user
@@ -112,6 +111,7 @@ So others know my availability
 - [ ] Status shows in member lists
 - [ ] Status shows in DM list
 - [ ] Status updates in real-time
+- [ ] Can see when users join/leave conversations
 
 As a user
 I want to see others' presence
@@ -170,3 +170,14 @@ So that I can find past information
 - [ ] Can filter by channel
 - [ ] Can relevant search snippets
 - [ ] Can sort search results
+
+## 101. Enhancements
+
+-[ ] Send message on enter (DM)
+-[ ] Send message on enter (Channel)
+-[ ] infinite scroll (DM)
+-[ ] infinite scroll (Channel)
+
+## 102. Fixes
+
+TBD
