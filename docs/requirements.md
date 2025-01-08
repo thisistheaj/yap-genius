@@ -6,8 +6,8 @@ As a new user
 I want to create an account
 So that I can access the messaging platform
 - [x] Can register with email and password
-- [ ] Get feedback on password strength
-- [ ] Get notified of duplicate email/username
+- [x] Get feedback on password strength
+- [x] Get notified of duplicate email/username
 
 As a registered user
 I want to log in to my account

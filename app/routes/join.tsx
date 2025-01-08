@@ -25,25 +25,33 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const email = formData.get("email");
   const password = formData.get("password");
+  const confirmPassword = formData.get("confirmPassword");
   const redirectTo = safeRedirect(formData.get("redirectTo"), "/");
 
   if (!validateEmail(email)) {
     return json(
-      { errors: { email: "Email is invalid", password: null } },
+      { errors: { email: "Email is invalid", password: null, confirmPassword: null } },
       { status: 400 },
     );
   }
 
   if (typeof password !== "string" || password.length === 0) {
     return json(
-      { errors: { email: null, password: "Password is required" } },
+      { errors: { email: null, password: "Password is required", confirmPassword: null } },
       { status: 400 },
     );
   }
 
   if (password.length < 8) {
     return json(
-      { errors: { email: null, password: "Password is too short" } },
+      { errors: { email: null, password: "Password is too short", confirmPassword: null } },
+      { status: 400 },
+    );
+  }
+
+  if (password !== confirmPassword) {
+    return json(
+      { errors: { email: null, password: null, confirmPassword: "Passwords do not match" } },
       { status: 400 },
     );
   }
@@ -55,6 +63,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         errors: {
           email: "A user already exists with this email",
           password: null,
+          confirmPassword: null,
         },
       },
       { status: 400 },
@@ -131,10 +140,42 @@ export default function Join() {
                   autoComplete="new-password"
                   aria-invalid={actionData?.errors?.password ? true : undefined}
                   aria-describedby="password-error"
+                  onChange={(e) => {
+                    const strength = e.target.value.length >= 12 ? "strong" : e.target.value.length >= 8 ? "moderate" : "weak";
+                    const el = document.getElementById("password-strength-status");
+                    if (el) {
+                      el.className = `${
+                        strength === "strong" ? "text-green-500" : 
+                        strength === "moderate" ? "text-yellow-500" : 
+                        "text-red-500"
+                      }`;
+                      el.textContent = strength;
+                    }
+                  }}
                 />
+                <div className="text-xs">
+                  Password strength: <span id="password-strength-status" className="text-red-500">weak</span>
+                </div>
                 {actionData?.errors?.password && (
                   <p className="text-sm text-destructive" id="password-error">
                     {actionData.errors.password}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  aria-invalid={actionData?.errors?.confirmPassword ? true : undefined}
+                  aria-describedby="confirmPassword-error"
+                />
+                {actionData?.errors?.confirmPassword && (
+                  <p className="text-sm text-destructive" id="confirmPassword-error">
+                    {actionData.errors.confirmPassword}
                   </p>
                 )}
               </div>
@@ -147,6 +188,20 @@ export default function Join() {
             </Form>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
+            {actionData?.errors?.email && actionData.errors.email.includes("already exists") && (
+              <div className="text-sm text-destructive text-center">
+                This email is already registered.{" "}
+                <Link
+                  className="text-primary underline-offset-4 hover:underline"
+                  to={{
+                    pathname: "/login",
+                    search: searchParams.toString(),
+                  }}
+                >
+                  Sign in instead?
+                </Link>
+              </div>
+            )}
             <div className="text-sm text-muted-foreground text-center">
               Already have an account?{" "}
               <Link
