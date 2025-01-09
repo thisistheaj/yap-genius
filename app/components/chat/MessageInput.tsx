@@ -1,15 +1,16 @@
-import { Form } from "@remix-run/react";
+import { Form, useSubmit } from "@remix-run/react";
 import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
 import { FileUpload } from "~/components/ui/file-upload";
 import { FilePreview } from "~/components/ui/file-preview";
-import { useState } from "react";
+import { useState, useRef, KeyboardEvent } from "react";
 
 interface MessageInputProps {
   placeholder?: string;
 }
 
 export function MessageInput({ placeholder = "Type a message..." }: MessageInputProps) {
+  const [content, setContent] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<Array<{
     id: string;
     name: string;
@@ -17,6 +18,25 @@ export function MessageInput({ placeholder = "Type a message..." }: MessageInput
     size: number;
     mimeType: string;
   }>>([]);
+  const formRef = useRef<HTMLFormElement>(null);
+  const submit = useSubmit();
+
+  const handleSubmit = () => {
+    if (!content.trim() && attachedFiles.length === 0) return;
+    
+    if (formRef.current) {
+      submit(formRef.current);
+      setContent("");
+      setAttachedFiles([]);
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
 
   return (
     <div className="border-t p-4">
@@ -35,7 +55,10 @@ export function MessageInput({ placeholder = "Type a message..." }: MessageInput
         </div>
       )}
 
-      <Form method="post" className="space-y-4">
+      <Form ref={formRef} method="post" className="space-y-4" onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmit();
+      }}>
         {/* Hidden inputs for file IDs */}
         {attachedFiles.map((file) => (
           <input key={file.id} type="hidden" name="fileIds[]" value={file.id} />
@@ -44,6 +67,9 @@ export function MessageInput({ placeholder = "Type a message..." }: MessageInput
         <div className="flex gap-2">
           <Textarea
             name="content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={placeholder}
             className="min-h-[2.5rem] max-h-[10rem]"
           />

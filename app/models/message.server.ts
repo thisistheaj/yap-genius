@@ -7,11 +7,13 @@ export async function createMessage({
   userId,
   channelId,
   fileIds = [],
+  parentId,
 }: {
   content: string;
   userId: User["id"];
   channelId: string;
   fileIds?: string[];
+  parentId?: string;
 }) {
   // Create message and connect files
   const message = await prisma.message.create({
@@ -19,6 +21,7 @@ export async function createMessage({
       content,
       userId,
       channelId,
+      parentId,
       files: fileIds.length > 0 ? {
         connect: fileIds.map(id => ({ id })),
       } : undefined,
@@ -26,6 +29,7 @@ export async function createMessage({
     include: {
       user: true,
       files: true,
+      parent: true,
     },
   });
 
@@ -41,16 +45,32 @@ export async function createMessage({
   return message;
 }
 
-export async function getChannelMessages(channelId: string) {
+export async function getChannelMessages(channelId: string, parentId?: string | null) {
   return prisma.message.findMany({
     where: {
       channelId,
       deletedAt: null,
+      parentId: parentId ?? null, // Only get top-level messages or specific thread
     },
     orderBy: { createdAt: "asc" },
     include: {
       user: true,
       files: true,
+      replies: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: {
+          user: true,
+        },
+      },
+      _count: {
+        select: {
+          replies: {
+            where: { deletedAt: null }
+          },
+        },
+      },
     },
   });
 }

@@ -11,7 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, MessageSquare } from "lucide-react";
+import { Link } from "@remix-run/react";
 
 interface Message {
   id: string;
@@ -31,14 +32,23 @@ interface Message {
     size: number;
     mimeType: string;
   }>;
+  replies?: Array<{
+    id: string;
+    createdAt: string | Date;
+    user: {
+      displayName?: string | null;
+      email: string;
+    };
+  }>;
 }
 
 interface MessageListProps {
   messages: Message[];
   currentUserId: string;
+  hideThreads?: boolean;
 }
 
-export function MessageList({ messages, currentUserId }: MessageListProps) {
+export function MessageList({ messages, currentUserId, hideThreads = false }: MessageListProps) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const editFetcher = useFetcher();
@@ -118,6 +128,11 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
                         </DropdownMenuItem>
                       </>
                     )}
+                    <DropdownMenuItem asChild>
+                      <Link to={`thread/${message.id}`} className="cursor-pointer">
+                        Reply in Thread
+                      </Link>
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -156,6 +171,30 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
                       {message.files.map((file) => (
                         <FilePreview key={file.id} file={file} variant="message" />
                       ))}
+                    </div>
+                  )}
+                  {!hideThreads && message.replies?.length > 0 && (
+                    <div className="mt-2 border-l-2 border-muted pl-3">
+                      <Link
+                        to={`thread/${message.id}`}
+                        className="group flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium group-hover:underline">
+                            {message.replies?.length} {message.replies?.length === 1 ? 'reply' : 'replies'}
+                          </span>
+                          {(() => {
+                            const lastReply = message.replies?.[message.replies.length - 1];
+                            return lastReply && (
+                              <span className="text-xs">
+                                Latest reply {formatLastSeen(lastReply.createdAt)} by {' '}
+                                {lastReply.user.displayName || lastReply.user.email}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      </Link>
                     </div>
                   )}
                 </>
