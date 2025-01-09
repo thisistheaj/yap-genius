@@ -14,7 +14,6 @@ I want to log in to my account
 So that I can access my messages and channels
 - [x] Can log in with email/username and password
 - [x] Stay logged in across browser sessions
-- [ ] Can request password reset
 - [x] Can log out from current session
 
 ## 2. Real-time Messaging
@@ -36,7 +35,6 @@ So that I can stay updated on conversations
 - [x] See message timestamps
 - [x] Messages persist after refresh
 - [x] Can copy message content
-- [ ] Can share message links
 
 ## 3. Channel/DM Organization
 
@@ -75,11 +73,26 @@ So that I can easily find conversations
 - [x] Can set channel description
 - [x] Can edit channel description and name
 - [x] Can mark channels as favorites
-- [ ] Can see unread indicators
-- [ ] Can sort channels by activity
-- [ ] Can mute channels/DMs
 
-## 5. File Sharing
+## 5. User Presence & Status
+
+As a user
+I want to set my status
+So others know my availability
+- [x] Can set status (online, away, offline)
+- [x] Can set custom status message
+- [x] Status shows in DM list
+- [x] Status updates in real-time
+- [x] Status updates itself periodically when app is open
+
+As a user
+I want to see others' presence
+So I know who's available
+- [x] See online status in real-time
+- [x] See when users become active/inactive
+- [x] See last active time for offline users
+
+## 6. File Uploads
 
 As a user
 I want to share files
@@ -92,7 +105,7 @@ So that I can collaborate effectively
 - [ ] Get warning for large files
 - [ ] See file metadata (size, type)
 
-## 6. User Presence & Status
+## 7. Profile
 
 As a user
 I want to create a profile
@@ -102,27 +115,7 @@ So that I can be identified by others
 - [ ] Can set a status message
 - [ ] Am prompted to set a profile picture and display name on signup
 
-As a user
-I want to set my status
-So others know my availability
-- [ ] Can set status (online, away, offline)
-- [ ] Can set custom status message
-- [ ] Can set status duration
-- [ ] Status shows in member lists
-- [ ] Status shows in DM list
-- [ ] Status updates in real-time
-- [ ] Can see when users join/leave conversations
-
-As a user
-I want to see others' presence
-So I know who's available
-- [ ] See online status in real-time
-- [ ] See when users become active/inactive
-- [ ] See last active time for offline users
-- [ ] See status in message headers
-- [ ] See status in member lists
-
-## 7. Thread Support
+## 8. Thread Support
 
 As a user
 I want to create message threads
@@ -145,7 +138,7 @@ So I can follow conversations easily
 - [ ] Can return to main channel view
 - [ ] Can share thread links
 
-## 8. Emoji Reactions
+## 9. Emoji Reactions
 
 As a user
 I want to react to messages
@@ -158,7 +151,42 @@ So I can respond quickly and expressively
 - [ ] Can see most used reactions first
 - [ ] Can search emoji picker
 
-## 9. Search
+## 10. System Messages
+- [ ] Can see when users join conversations
+- [ ] Can see when users leave conversations
+- [ ] Can see when users set the description of a channel
+- [ ] Can see when users set the name of a channel
+
+## 11. Pagination
+
+As a user
+I want to load earlier messages
+So that I can stay updated on conversations
+- [ ] can load earlier messages
+- [ ] can skip to the newest message of a channel
+- [ ] can build urls that link to specific messages
+- [ ] Can share message links
+
+## 12. Read State and Notifications
+
+As a user
+I want to see unread indicators
+So that I can know what I have not read
+- [ ] Can see unread indicators
+- [ ] Can sort channels by activity
+- [ ] Can mute channels/DMs
+
+As a user
+I want to receive notifications
+So that I can stay updated on conversations
+- [ ] can receive notifications for new DMs
+- [ ] can receive notifications for new threads
+- [ ] can receive notifications for new reactions
+- [ ] can receive notifications for new @'s
+- [ ] can turn on notifications for selected channels
+
+
+## 13. Search
 
 As a user
 I want to search content
@@ -171,12 +199,18 @@ So that I can find past information
 - [ ] Can relevant search snippets
 - [ ] Can sort search results
 
+## 14. Email + Account Security
+
+As a admin, 
+i want users to be verified
+so that I can ensure the integrity of the platform
+- [ ] can confirm email address after signup
+- [ ] can request password reset
+
 ## 101. Enhancements
 
 -[ ] Send message on enter (DM)
 -[ ] Send message on enter (Channel)
--[ ] infinite scroll (DM)
--[ ] infinite scroll (Channel)
 
 ## 102. Fixes
 

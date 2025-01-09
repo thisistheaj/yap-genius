@@ -60,3 +60,28 @@ export async function verifyLogin(
 
   return userWithoutPassword;
 }
+
+export async function updateUserStatus(userId: string, status: string | null) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { status },
+  });
+}
+
+export async function updateUserLastSeen(userId: string) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { lastSeen: new Date() },
+  });
+}
+
+export async function getUserPresence(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      lastSeen: true,
+      status: true,
+    },
+  });
+  return user;
+}

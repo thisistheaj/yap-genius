@@ -11,6 +11,7 @@ import {
 } from "@remix-run/react";
 
 import { getUser } from "~/session.server";
+import { updateUserLastSeen } from "~/models/user.server";
 import stylesheet from "~/tailwind.css";
 import "./globals.css";
 
@@ -20,7 +21,12 @@ export const links: LinksFunction = () => [
 ];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  return json({ user: await getUser(request) });
+  const user = await getUser(request);
+  if (user) {
+    // Update lastSeen without awaiting to not block the response
+    updateUserLastSeen(user.id).catch(console.error);
+  }
+  return json({ user });
 };
 
 export default function App() {
