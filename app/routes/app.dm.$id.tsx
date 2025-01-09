@@ -1,16 +1,64 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { useLoaderData, useRevalidator, Form } from "@remix-run/react";
 import invariant from "tiny-invariant";
+import { useEffect } from "react";
 
 import { getChannelById } from "~/models/channel.server";
-import { createMessage, getChannelMessages } from "~/models/message.server";
+import { createMessage, getChannelMessages, updateMessage, deleteMessage } from "~/models/message.server";
 import { requireUserId } from "~/session.server";
 import { MessageList } from "~/components/chat/MessageList";
-import { Button } from "~/components/ui/button";
-import { Textarea } from "~/components/ui/textarea";
-import { useUser } from "~/utils";
+import { MessageInput } from "~/components/chat/MessageInput";
 import { Avatar } from "~/components/shared/Avatar";
+import { useUser } from "~/utils";
+import { Button } from "~/components/ui/button";
+import { MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
+
+interface Message {
+  id: string;
+  content: string;
+  createdAt: string | Date;
+  editedAt: string | Date | null;
+  user: {
+    id: string;
+    email: string;
+    displayName?: string | null;
+    avatarUrl?: string | null;
+  };
+  files: Array<{
+    id: string;
+    name: string;
+    url: string;
+    size: number;
+    mimeType: string;
+  }>;
+}
+
+interface Channel {
+  id: string;
+  type: "DM" | "GROUP_DM";
+  members: Array<{
+    userId: string;
+    user: {
+      id: string;
+      email: string;
+      displayName?: string | null;
+      avatarUrl?: string | null;
+    };
+  }>;
+}
+
+type LoaderData = {
+  channel: Channel;
+  messages: Message[];
+  otherMembers: Channel["members"];
+};
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   const userId = await requireUserId(request);
@@ -41,7 +89,49 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   }
 
   const formData = await request.formData();
+  const action = formData.get("_action");
+
+  if (action === "editMessage") {
+    const messageId = formData.get("messageId");
+    const content = formData.get("content");
+
+    if (typeof messageId !== "string" || typeof content !== "string" || content.length === 0) {
+      return json(
+        { errors: { content: "Message content cannot be empty" } },
+        { status: 400 }
+      );
+    }
+
+    await updateMessage({
+      id: messageId,
+      content,
+      userId,
+    });
+
+    return json({ ok: true });
+  }
+
+  if (action === "deleteMessage") {
+    const messageId = formData.get("messageId");
+
+    if (typeof messageId !== "string") {
+      return json(
+        { errors: { messageId: "Message ID is required" } },
+        { status: 400 }
+      );
+    }
+
+    await deleteMessage({
+      id: messageId,
+      userId,
+    });
+
+    return json({ ok: true });
+  }
+
+  // Handle regular message creation
   const content = formData.get("content");
+  const fileIds = formData.getAll("fileIds[]") as string[];
 
   if (typeof content !== "string" || content.length === 0) {
     return json(
@@ -53,7 +143,8 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   await createMessage({
     content,
     userId,
-    channelId: channel.id
+    channelId: channel.id,
+    fileIds,
   });
 
   return json({ ok: true });
@@ -62,31 +153,67 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 export default function DMPage() {
   const { channel, messages, otherMembers } = useLoaderData<typeof loader>();
   const user = useUser();
+  const revalidator = useRevalidator();
 
   const title = channel.type === "DM" 
     ? otherMembers[0].user.displayName || otherMembers[0].user.email
     : `Group DM with ${otherMembers.map(m => m.user.displayName || m.user.email).join(", ")}`;
 
+  useEffect(() => {
+    // Connect to SSE endpoint
+    const eventSource = new EventSource(`/messages/subscribe?channelId=${channel.id}`);
+    
+    // Listen for message events
+    eventSource.addEventListener("message", () => {
+      // Refresh data when message received
+      revalidator.revalidate();
+    });
+
+    // Cleanup on unmount
+    return () => {
+      eventSource.close();
+    };
+  }, [channel.id, revalidator]);
+
   return (
     <div className="flex flex-col h-full">
       {/* DM Header */}
       <div className="border-b p-4">
-        <div className="flex items-center gap-4">
-          {channel.type === "DM" ? (
-            <Avatar user={otherMembers[0].user} />
-          ) : (
-            <div className="flex -space-x-2">
-              {otherMembers.slice(0, 3).map(member => (
-                <Avatar key={member.userId} user={member.user} className="border-2 border-background" />
-              ))}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {channel.type === "DM" ? (
+              <Avatar user={otherMembers[0].user} />
+            ) : (
+              <div className="flex -space-x-2">
+                {otherMembers.slice(0, 3).map(member => (
+                  <Avatar key={member.userId} user={member.user} className="border-2 border-background" />
+                ))}
+              </div>
+            )}
+            <div>
+              <h2 className="text-lg font-semibold">{title}</h2>
+              <p className="text-sm text-muted-foreground">
+                {channel.type === "DM" ? "Direct Message" : `${otherMembers.length + 1} members`}
+              </p>
             </div>
-          )}
-          <div>
-            <h2 className="text-lg font-semibold">{title}</h2>
-            <p className="text-sm text-muted-foreground">
-              {channel.type === "DM" ? "Direct Message" : `${otherMembers.length + 1} members`}
-            </p>
           </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Form action="leave" method="post">
+                  <button type="submit" className="w-full text-left text-red-600">
+                    Leave Conversation
+                  </button>
+                </Form>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -96,18 +223,7 @@ export default function DMPage() {
       </div>
 
       {/* Message Input */}
-      <div className="border-t p-4">
-        <Form method="post">
-          <div className="flex gap-2">
-            <Textarea
-              name="content"
-              placeholder={`Message ${title}`}
-              className="min-h-[2.5rem] max-h-[10rem]"
-            />
-            <Button type="submit">Send</Button>
-          </div>
-        </Form>
-      </div>
+      <MessageInput placeholder={`Message ${title}`} />
     </div>
   );
 } 

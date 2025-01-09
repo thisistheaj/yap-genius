@@ -1,136 +1,36 @@
-import { useEffect, useRef, useState } from "react";
-import type { Message } from "~/types";
-import { Form, useSubmit } from "@remix-run/react";
+import { Avatar } from "~/components/shared/Avatar";
+import { FilePreview } from "~/components/ui/file-preview";
+import { formatLastSeen } from "~/utils";
+import { useState, useEffect } from "react";
+import { useFetcher } from "@remix-run/react";
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { MoreVertical, Copy, Edit, Trash } from "lucide-react";
-import { cn } from "~/lib/utils";
-import { Avatar } from "~/components/shared/Avatar";
+import { MoreVertical } from "lucide-react";
 
-interface MessageItemProps {
-  message: Message;
-  currentUserId: string;
-  onEdit: (messageId: string, content: string) => void;
-}
-
-function MessageItem({ message, currentUserId, onEdit }: MessageItemProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(message.content);
-  const submit = useSubmit();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isEditing]);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
+interface Message {
+  id: string;
+  content: string;
+  createdAt: string | Date;
+  editedAt: string | Date | null;
+  user: {
+    id: string;
+    email: string;
+    displayName?: string | null;
+    avatarUrl?: string | null;
   };
-
-  const handleDelete = () => {
-    const form = new FormData();
-    form.append("messageId", message.id);
-    form.append("_action", "deleteMessage");
-    submit(form, { method: "post" });
-  };
-
-  const handleEdit = () => {
-    setIsEditing(true);
-  };
-
-  const handleSaveEdit = () => {
-    onEdit(message.id, editContent);
-    setIsEditing(false);
-  };
-
-  const isOwner = message.userId === currentUserId;
-  const formattedDate = new Date(message.createdAt).toLocaleString();
-
-  return (
-    <div className="group relative flex items-start gap-2 px-4 py-2 hover:bg-gray-50">
-      <Avatar 
-        user={message.user} 
-        size="sm"
-      />
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold">
-            {message.user.username || message.user.email}
-          </span>
-          <span className="text-xs text-gray-500">{formattedDate}</span>
-          {message.editedAt && (
-            <span className="text-xs text-gray-500">(edited)</span>
-          )}
-        </div>
-        {isEditing ? (
-          <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              className="flex-1"
-            />
-            <Button onClick={handleSaveEdit} size="sm">
-              Save
-            </Button>
-            <Button
-              onClick={() => setIsEditing(false)}
-              variant="outline"
-              size="sm"
-            >
-              Cancel
-            </Button>
-          </div>
-        ) : (
-          <p className={cn("mt-1", message.deletedAt && "italic text-gray-500")}>
-            {message.deletedAt ? "This message was deleted" : message.content}
-          </p>
-        )}
-      </div>
-      {!message.deletedAt && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-4 top-2 opacity-0 group-hover:opacity-100"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleCopy}>
-              <Copy className="mr-2 h-4 w-4" />
-              Copy
-            </DropdownMenuItem>
-            {isOwner && (
-              <>
-                <DropdownMenuItem onClick={handleEdit}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleDelete}
-                  className="text-red-600"
-                >
-                  <Trash className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-    </div>
-  );
+  files: Array<{
+    id: string;
+    name: string;
+    url: string;
+    size: number;
+    mimeType: string;
+  }>;
 }
 
 interface MessageListProps {
@@ -139,26 +39,131 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages, currentUserId }: MessageListProps) {
-  const submit = useSubmit();
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const editFetcher = useFetcher();
 
-  const handleEdit = (messageId: string, content: string) => {
-    const form = new FormData();
-    form.append("messageId", messageId);
-    form.append("content", content);
-    form.append("_action", "editMessage");
-    submit(form, { method: "post" });
-  };
+  // Reset editing state when edit is complete
+  useEffect(() => {
+    if (editFetcher.state === "idle" && editFetcher.data && 'ok' in editFetcher.data) {
+      setEditingMessageId(null);
+      setEditContent("");
+    }
+  }, [editFetcher.state, editFetcher.data]);
 
   return (
-    <div className="flex flex-col gap-1">
-      {messages.map((message) => (
-        <MessageItem
-          key={message.id}
-          message={message}
-          currentUserId={currentUserId}
-          onEdit={handleEdit}
-        />
-      ))}
+    <div className="flex flex-col gap-4">
+      {messages.map((message) => {
+        const isEditing = editingMessageId === message.id;
+        const isOwner = message.user.id === currentUserId;
+
+        return (
+          <div key={message.id} className="flex gap-3 group">
+            <Avatar user={message.user} />
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">
+                  {message.user.displayName || message.user.email}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {formatLastSeen(message.createdAt)}
+                </span>
+                {message.editedAt && (
+                  <span className="text-xs text-muted-foreground">(edited)</span>
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        navigator.clipboard.writeText(message.content);
+                      }}
+                    >
+                      Copy
+                    </DropdownMenuItem>
+                    {isOwner && (
+                      <>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setEditingMessageId(message.id);
+                            setEditContent(message.content);
+                          }}
+                        >
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            const form = document.createElement("form");
+                            form.method = "post";
+                            form.innerHTML = `
+                              <input type="hidden" name="_action" value="deleteMessage" />
+                              <input type="hidden" name="messageId" value="${message.id}" />
+                            `;
+                            document.body.appendChild(form);
+                            form.submit();
+                            document.body.removeChild(form);
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              {isEditing ? (
+                <editFetcher.Form method="post" className="space-y-2">
+                  <input type="hidden" name="_action" value="editMessage" />
+                  <input type="hidden" name="messageId" value={message.id} />
+                  <Textarea
+                    name="content"
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="min-h-[2.5rem] max-h-[10rem]"
+                  />
+                  <div className="flex gap-2">
+                    <Button type="submit" size="sm">Save</Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditingMessageId(null);
+                        setEditContent("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </editFetcher.Form>
+              ) : (
+                <>
+                  {message.content && (
+                    <div className="text-sm">{message.content}</div>
+                  )}
+                  {message.files?.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {message.files.map((file) => (
+                        <FilePreview key={file.id} file={file} variant="message" />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 } 

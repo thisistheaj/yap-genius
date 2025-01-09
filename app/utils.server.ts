@@ -1,13 +1,18 @@
 import { EventEmitter } from "events";
 
-// Add type definition for global event emitter
+// Add type definition for global event emitters
 declare global {
   var messageEmitter: EventEmitter | undefined;
+  var presenceEmitter: EventEmitter | undefined;
 }
 
-// Initialize singleton event emitter
+// Initialize singleton emitters
 if (!global.messageEmitter) {
   global.messageEmitter = new EventEmitter();
+}
+
+if (!global.presenceEmitter) {
+  global.presenceEmitter = new EventEmitter();
 }
 
 // Helper function to create SSE streams
@@ -41,4 +46,9 @@ export function eventStream(signal: AbortSignal, setup: (send: (event: { event: 
 // Helper to emit message events
 export function emitMessageEvent(channelId: string, message: any) {
   global.messageEmitter?.emit("message", { channelId, message });
+}
+
+// Helper to emit presence events
+export function emitPresenceEvent(userId: string, data: any) {
+  global.presenceEmitter?.emit("presence", { userId, data });
 } 

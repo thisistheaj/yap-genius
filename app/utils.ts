@@ -1,5 +1,7 @@
 import { useMatches } from "@remix-run/react";
 import { useMemo } from "react";
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 import type { User } from "~/models/user.server";
 
@@ -75,9 +77,10 @@ export function validateEmail(email: unknown): email is string {
   return typeof email === "string" && email.length > 3 && email.includes("@");
 }
 
-export function formatLastSeen(date: Date): string {
+export function formatLastSeen(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
   const now = new Date();
-  const diff = now.getTime() - date.getTime();
+  const diff = now.getTime() - dateObj.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
@@ -87,4 +90,8 @@ export function formatLastSeen(date: Date): string {
   if (hours < 24) return `${hours}h ago`;
   if (days === 1) return "yesterday";
   return `${days}d ago`;
+}
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
 }

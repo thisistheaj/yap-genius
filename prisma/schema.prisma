@@ -21,6 +21,7 @@ model User {
   createdChannels Channel[]       @relation("ChannelCreator")
   channels        ChannelMember[]
   messages        Message[]
+  files           File[]
 }
 
 model Password {
@@ -71,4 +72,19 @@ model Message {
   replies   Message[] @relation("ThreadMessages")
   user      User      @relation(fields: [userId], references: [id])
   channel   Channel   @relation(fields: [channelId], references: [id])
+  files     File[]
+}
+
+model File {
+  id        String   @id @default(cuid())
+  name      String   // Original filename
+  url       String   // Public URL (/uploads/{id}-{name})
+  size      Int
+  mimeType  String
+  purpose   String?  // e.g., "profile_picture", "message_attachment", etc.
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  messageId String?
+  message   Message? @relation(fields: [messageId], references: [id])
+  createdAt DateTime @default(now())
 }

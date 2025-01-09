@@ -1,63 +1,57 @@
 import { prisma } from "~/db.server";
-import type { Message } from "~/types";
+import type { User } from "@prisma/client";
 import { emitMessageEvent } from "~/utils.server";
-
-export type { Message } from "~/types";
 
 export async function createMessage({
   content,
   userId,
   channelId,
+  fileIds = [],
 }: {
   content: string;
-  userId: string;
+  userId: User["id"];
   channelId: string;
-}): Promise<Message> {
-  // @ts-ignore - Prisma types not recognizing message model
+  fileIds?: string[];
+}) {
+  // Create message and connect files
   const message = await prisma.message.create({
     data: {
       content,
       userId,
       channelId,
+      files: fileIds.length > 0 ? {
+        connect: fileIds.map(id => ({ id })),
+      } : undefined,
     },
     include: {
       user: true,
-      channel: {
-        include: {
-          members: {
-            include: {
-              user: true
-            }
-          }
-        }
-      }
-    }
+      files: true,
+    },
   });
 
-  // Emit event for real-time updates
+  // Update channel's lastActivity
+  await prisma.channel.update({
+    where: { id: channelId },
+    data: { lastActivity: new Date() },
+  });
+
+  // Emit message event
   emitMessageEvent(channelId, message);
 
   return message;
 }
 
-export async function getChannelMessages(channelId: string): Promise<Message[]> {
-  // @ts-ignore - Prisma types not recognizing message model
+export async function getChannelMessages(channelId: string) {
   return prisma.message.findMany({
-    where: { channelId },
+    where: {
+      channelId,
+      deletedAt: null,
+    },
     orderBy: { createdAt: "asc" },
-    take: 50,
     include: {
       user: true,
-      channel: {
-        include: {
-          members: {
-            include: {
-              user: true
-            }
-          }
-        }
-      }
-    }
+      files: true,
+    },
   });
 }
 
@@ -69,35 +63,26 @@ export async function updateMessage({
   id: string;
   content: string;
   userId: string;
-}): Promise<Message> {
-  // @ts-ignore - Prisma types not recognizing message model
-  const message = await prisma.message.update({
-    where: { 
-      id,
-      userId // Ensure user owns the message
-    },
-    data: { 
+}) {
+  const message = await prisma.message.findFirst({
+    where: { id, userId },
+  });
+
+  if (!message) {
+    throw new Error("Message not found or user not authorized");
+  }
+
+  return prisma.message.update({
+    where: { id },
+    data: {
       content,
-      editedAt: new Date()
+      editedAt: new Date(),
     },
     include: {
       user: true,
-      channel: {
-        include: {
-          members: {
-            include: {
-              user: true
-            }
-          }
-        }
-      }
-    }
+      files: true,
+    },
   });
-
-  // Emit event for real-time updates
-  emitMessageEvent(message.channelId, message);
-
-  return message;
 }
 
 export async function deleteMessage({
@@ -106,32 +91,19 @@ export async function deleteMessage({
 }: {
   id: string;
   userId: string;
-}): Promise<Message> {
-  // @ts-ignore - Prisma types not recognizing message model
-  const message = await prisma.message.update({
-    where: { 
-      id,
-      userId // Ensure user owns the message
-    },
-    data: {
-      deletedAt: new Date()
-    },
-    include: {
-      user: true,
-      channel: {
-        include: {
-          members: {
-            include: {
-              user: true
-            }
-          }
-        }
-      }
-    }
+}) {
+  const message = await prisma.message.findFirst({
+    where: { id, userId },
   });
 
-  // Emit event for real-time updates
-  emitMessageEvent(message.channelId, message);
+  if (!message) {
+    throw new Error("Message not found or user not authorized");
+  }
 
-  return message;
+  return prisma.message.update({
+    where: { id },
+    data: {
+      deletedAt: new Date(),
+    },
+  });
 }

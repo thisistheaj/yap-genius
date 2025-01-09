@@ -14,6 +14,52 @@ import { StarIcon } from "~/components/icons/star-icon";
 import { useUser } from "~/utils";
 import type { Channel, Message } from "~/types";
 import { MessageList } from "~/components/chat/MessageList";
+import { MessageInput } from "~/components/chat/MessageInput";
+import { MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
+
+interface Message {
+  id: string;
+  content: string;
+  createdAt: string | Date;
+  editedAt: string | Date | null;
+  user: {
+    id: string;
+    email: string;
+    displayName?: string | null;
+    avatarUrl?: string | null;
+  };
+  files: Array<{
+    id: string;
+    name: string;
+    url: string;
+    size: number;
+    mimeType: string;
+  }>;
+}
+
+interface Channel {
+  id: string;
+  name: string;
+  type: string;
+  description?: string | null;
+  createdBy: string;
+  members: Array<{
+    userId: string;
+    isFavorite: boolean;
+    user: {
+      id: string;
+      email: string;
+      displayName?: string | null;
+      avatarUrl?: string | null;
+    };
+  }>;
+}
 
 type LoaderData = {
   channel: Channel;
@@ -88,6 +134,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 
   // Handle regular message creation
   const content = formData.get("content");
+  const fileIds = formData.getAll("fileIds[]") as string[];
 
   if (typeof content !== "string" || content.length === 0) {
     return json(
@@ -99,7 +146,8 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   await createMessage({
     content,
     userId,
-    channelId: channel.id
+    channelId: channel.id,
+    fileIds,
   });
 
   return json({ ok: true });
@@ -134,43 +182,40 @@ export default function ChannelPage() {
       {/* Channel Header */}
       <div className="border-b p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <span className="text-muted-foreground">#</span>
-              {channel.name}
-            </h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="px-2"
-              onClick={() => {
-                fetcher.submit(
-                  { channelId: channel.id },
-                  { method: "post", action: "/app/c/favorite" }
-                );
-              }}
-            >
-              <StarIcon className="h-4 w-4" filled={isFavorite} />
-            </Button>
-            {channel.description && (
-              <p className="text-sm text-muted-foreground">{channel.description}</p>
-            )}
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">#</span>
+            <div>
+              <h2 className="text-lg font-semibold">{channel.name}</h2>
+              {channel.description && (
+                <p className="text-sm text-muted-foreground">
+                  {channel.description}
+                </p>
+              )}
+            </div>
           </div>
-          <div className="flex gap-2">
-            {isOwner ? (
-              <Button variant="outline" size="sm" asChild>
-                <Link to={`/app/c/${channel.name}/settings`}>
-                  Settings
-                </Link>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
               </Button>
-            ) : (
-              <Form method="post" action={`/app/c/${channel.name}/leave`}>
-                <Button variant="outline" size="sm" type="submit">
-                  Leave Channel
-                </Button>
-              </Form>
-            )}
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {isOwner ? (
+                <DropdownMenuItem asChild>
+                  <Link to="settings">Channel Settings</Link>
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem asChild>
+                  <Form action="leave" method="post">
+                    <button type="submit" className="w-full text-left text-red-600">
+                      Leave Channel
+                    </button>
+                  </Form>
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -180,18 +225,7 @@ export default function ChannelPage() {
       </div>
 
       {/* Message Input */}
-      <div className="border-t p-4">
-        <Form method="post">
-          <div className="flex gap-2">
-            <Textarea
-              name="content"
-              placeholder={`Message #${channel.name}`}
-              className="min-h-[2.5rem] max-h-[10rem]"
-            />
-            <Button type="submit">Send</Button>
-          </div>
-        </Form>
-      </div>
+      <MessageInput placeholder={`Message #${channel.name}`} />
     </div>
   );
 }
