@@ -110,10 +110,10 @@ So that I can collaborate effectively
 As a user
 I want to create a profile
 So that I can be identified by others
-- [ ] Can set a profile picture
-- [ ] Can set a display name
+- [x] Can set a profile picture
+- [x] Can set a display name
 - [x] Can set a status message
-- [ ] Am prompted to set a profile picture and display name on signup
+- [x] Am prompted to set a profile picture and display name on signup
 
 ## 8. Thread Support
 
