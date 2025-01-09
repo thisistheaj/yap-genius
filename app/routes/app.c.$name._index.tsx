@@ -23,44 +23,6 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 
-interface Message {
-  id: string;
-  content: string;
-  createdAt: string | Date;
-  editedAt: string | Date | null;
-  user: {
-    id: string;
-    email: string;
-    displayName?: string | null;
-    avatarUrl?: string | null;
-  };
-  files: Array<{
-    id: string;
-    name: string;
-    url: string;
-    size: number;
-    mimeType: string;
-  }>;
-}
-
-interface Channel {
-  id: string;
-  name: string;
-  type: string;
-  description?: string | null;
-  createdBy: string;
-  members: Array<{
-    userId: string;
-    isFavorite: boolean;
-    user: {
-      id: string;
-      email: string;
-      displayName?: string | null;
-      avatarUrl?: string | null;
-    };
-  }>;
-}
-
 type LoaderData = {
   channel: Channel;
   messages: Message[];
@@ -77,6 +39,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   }
 
   const messages = await getChannelMessages(channel.id);
+  console.log("Loaded messages:", messages);
   const isOwner = channel.createdBy === userId;
   
   return json<LoaderData>({ channel, messages, isOwner });
@@ -162,20 +125,24 @@ export default function ChannelPage() {
   const isFavorite = channel.members.some(m => m.userId === user.id && m.isFavorite);
 
   useEffect(() => {
-    // Connect to SSE endpoint
-    const eventSource = new EventSource(`/messages/subscribe?channelId=${channel.id}`);
+    // Connect to SSE endpoint for messages
+    const messageSource = new EventSource(`/app/c/${channel.name}/messages/subscribe`);
+    // Connect to SSE endpoint for system events
+    const systemSource = new EventSource(`/app/c/${channel.name}/events`);
     
-    // Listen for message events
-    eventSource.addEventListener("message", () => {
-      // Refresh data when message received
+    messageSource.addEventListener("message", () => {
       revalidator.revalidate();
     });
 
-    // Cleanup on unmount
+    systemSource.addEventListener("system", () => {
+      revalidator.revalidate();
+    });
+
     return () => {
-      eventSource.close();
+      messageSource.close();
+      systemSource.close();
     };
-  }, [channel.id, revalidator]);
+  }, [channel.name, revalidator]);
 
   return (
     <div className="flex flex-col h-full">

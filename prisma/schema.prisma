@@ -59,20 +59,22 @@ model ChannelMember {
 }
 
 model Message {
-  id        String    @id @default(cuid())
-  channelId String
-  userId    String
-  content   String
-  parentId  String?
-  editedAt  DateTime?
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  parent    Message?  @relation("ThreadMessages", fields: [parentId], references: [id])
-  replies   Message[] @relation("ThreadMessages")
-  user      User      @relation(fields: [userId], references: [id])
-  channel   Channel   @relation(fields: [channelId], references: [id])
-  files     File[]
+  id         String    @id @default(cuid())
+  channelId  String
+  userId     String
+  content    String
+  messageType String    @default("message") // "message" or "system"
+  parentId   String?
+  editedAt   DateTime?
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  systemData String?   // JSON string for system message data
+  parent     Message?  @relation("ThreadMessages", fields: [parentId], references: [id])
+  replies    Message[] @relation("ThreadMessages")
+  user       User      @relation(fields: [userId], references: [id])
+  channel    Channel   @relation(fields: [channelId], references: [id])
+  files      File[]
 }
 
 model File {

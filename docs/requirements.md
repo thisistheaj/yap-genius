@@ -120,22 +120,17 @@ So that I can be identified by others
 As a user
 I want to create message threads
 So I can organize detailed discussions
-- [ ] Can start thread from any message
-- [ ] Can reply in threads
-- [ ] Can see thread participant count
-- [ ] Can see thread reply count
-- [ ] Can mute specific threads
-- [ ] Can follow threads I'm interested in
+- [x] Can start thread from any message
+- [x] Can reply in threads
+- [x] Can see thread participant count
+- [x] Can see thread reply count
 
 As a user
 I want to navigate threads
 So I can follow conversations easily
-- [ ] Can switch between threads
-- [ ] Can see thread context
-- [ ] Can collapse/expand threads
-- [ ] Can see unread indicators for threads
-- [ ] Can return to main channel view
-- [ ] Can share thread links
+- [x] Can see thread context
+- [x] Can see unread indicators for threads
+- [x] Can return to main channel view
 
 ## 9. Emoji Reactions
 
@@ -151,10 +146,8 @@ So I can respond quickly and expressively
 - [ ] Can search emoji picker
 
 ## 10. System Messages
-- [ ] Can see when users join conversations
-- [ ] Can see when users leave conversations
-- [ ] Can see when users set the description of a channel
-- [ ] Can see when users set the name of a channel
+- [x] Can see when users join conversations
+- [x] Can see when users leave conversations
 
 ## 11. Pagination
 
@@ -165,6 +158,8 @@ So that I can stay updated on conversations
 - [ ] can skip to the newest message of a channel
 - [ ] can build urls that link to specific messages
 - [ ] Can share message links
+- [ ] Can share thread links
+
 
 ## 12. Read State and Notifications
 
@@ -209,8 +204,8 @@ so that I can ensure the integrity of the platform
 
 ## 101. Enhancements
 
--[ ] Send message on enter (DM)
--[ ] Send message on enter (Channel)
+-[x] Send message on enter (DM)
+-[x] Send message on enter (Channel)
 
 ## 102. Fixes
 

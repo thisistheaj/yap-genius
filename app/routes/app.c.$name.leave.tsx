@@ -1,23 +1,83 @@
-import { json, redirect } from "@remix-run/node";
-import type { ActionFunctionArgs } from "@remix-run/node";
-import { leaveChannel } from "~/models/channel.server";
+import { ActionFunctionArgs, redirect } from "@remix-run/node";
 import { requireUserId } from "~/session.server";
+import { prisma } from "~/db.server";
+import { emitSystemEvent } from "~/routes/app.c.$name.events";
 
-export const action = async ({ request, params }: ActionFunctionArgs) => {
+export async function action({ request, params }: ActionFunctionArgs) {
   const userId = await requireUserId(request);
   const channelName = params.name;
 
   if (!channelName) {
-    return json({ error: "Channel name is required" }, { status: 400 });
+    throw new Error("Channel name is required");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, displayName: true }
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const channel = await prisma.channel.findUnique({
+    where: { name: channelName },
+  });
+
+  if (!channel) {
+    throw new Error("Channel not found");
   }
 
   try {
-    await leaveChannel(userId, channelName);
+    // Start a transaction to ensure both operations succeed or fail together
+    await prisma.$transaction(async (tx) => {
+      // Delete channel member
+      await tx.channelMember.delete({
+        where: {
+          channelId_userId: {
+            channelId: channel.id,
+            userId: userId
+          }
+        }
+      });
+
+      // Create system message
+      console.log("Creating system message for leave...");
+      const systemMessage = await tx.message.create({
+        data: {
+          messageType: "system",
+          content: "",
+          userId,
+          channelId: channel.id,
+          systemData: JSON.stringify({
+            type: "leave",
+            channelName,
+            newValue: channelName
+          }),
+        },
+        include: {
+          user: true,
+        },
+      });
+      console.log("Created system message:", systemMessage);
+    });
+
+    // Emit system event for user leaving
+    console.log("Emitting system event...");
+    emitSystemEvent({
+      type: "leave",
+      channelName,
+      userId,
+      user: {
+        email: user.email,
+        displayName: user.displayName
+      }
+    });
+    console.log("System event emitted");
+
     return redirect("/app");
   } catch (error) {
-    if (error instanceof Error) {
-      return json({ error: error.message }, { status: 400 });
-    }
-    return json({ error: "Failed to leave channel" }, { status: 500 });
+    console.error("Error leaving channel:", error);
+    throw error;
   }
-}; 
+} 

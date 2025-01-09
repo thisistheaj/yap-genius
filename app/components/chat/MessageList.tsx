@@ -13,9 +13,11 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { MoreVertical, MessageSquare } from "lucide-react";
 import { Link } from "@remix-run/react";
+import { SystemMessage } from "./SystemMessage";
 
 interface Message {
   id: string;
+  messageType?: "system" | "message";
   content: string;
   createdAt: string | Date;
   editedAt: string | Date | null;
@@ -40,6 +42,7 @@ interface Message {
       email: string;
     };
   }>;
+  systemData?: string;
 }
 
 interface MessageListProps {
@@ -61,9 +64,28 @@ export function MessageList({ messages, currentUserId, hideThreads = false }: Me
     }
   }, [editFetcher.state, editFetcher.data]);
 
+  console.log("Rendering messages:", messages);
+
   return (
     <div className="flex flex-col gap-4">
       {messages.map((message) => {
+        console.log("Processing message:", message);
+        if (message.messageType === "system" && message.systemData) {
+          console.log("Found system message:", message);
+          const systemData = JSON.parse(message.systemData);
+          console.log("Parsed system data:", systemData);
+          return (
+            <SystemMessage
+              key={message.id}
+              type={systemData.type}
+              timestamp={message.createdAt}
+              user={message.user}
+              channelName={systemData.channelName}
+              newValue={systemData.newValue}
+            />
+          );
+        }
+
         const isEditing = editingMessageId === message.id;
         const isOwner = message.user.id === currentUserId;
 
@@ -173,7 +195,7 @@ export function MessageList({ messages, currentUserId, hideThreads = false }: Me
                       ))}
                     </div>
                   )}
-                  {!hideThreads && message.replies?.length > 0 && (
+                  {!hideThreads && message.replies && message.replies.length > 0 && (
                     <div className="mt-2 border-l-2 border-muted pl-3">
                       <Link
                         to={`thread/${message.id}`}
@@ -182,10 +204,10 @@ export function MessageList({ messages, currentUserId, hideThreads = false }: Me
                         <MessageSquare className="h-4 w-4" />
                         <div className="flex flex-col">
                           <span className="text-sm font-medium group-hover:underline">
-                            {message.replies?.length} {message.replies?.length === 1 ? 'reply' : 'replies'}
+                            {message.replies.length} {message.replies.length === 1 ? 'reply' : 'replies'}
                           </span>
                           {(() => {
-                            const lastReply = message.replies?.[message.replies.length - 1];
+                            const lastReply = message.replies[message.replies.length - 1];
                             return lastReply && (
                               <span className="text-xs">
                                 Latest reply {formatLastSeen(lastReply.createdAt)} by {' '}
