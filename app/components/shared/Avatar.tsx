@@ -1,34 +1,41 @@
 import { cn } from "~/lib/utils";
+import { Avatar as BaseAvatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 
 interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
   size?: "sm" | "md" | "lg";
   user: {
     email: string;
-    name?: string | null;
+    displayName?: string | null;
+    avatarUrl?: string | null;
   };
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 export function Avatar({ user, size = "md", className, ...props }: AvatarProps) {
-  const initials = user.name 
-    ? user.name.split(" ").map(n => n[0]).join("").toUpperCase()
-    : user.email[0].toUpperCase();
+  const displayName = user.displayName || user.email;
+  const initials = getInitials(displayName);
 
   const sizeClasses = {
-    sm: "h-8 w-8 text-sm",
-    md: "h-10 w-10 text-base",
-    lg: "h-12 w-12 text-lg",
-  };
+    sm: "h-8 w-8",
+    md: "h-10 w-10",
+    lg: "h-12 w-12",
+  } as const;
 
   return (
-    <div
-      className={cn(
-        "rounded-full bg-primary/10 flex items-center justify-center font-semibold",
-        sizeClasses[size],
-        className
+    <BaseAvatar className={cn(sizeClasses[size], className)} {...props}>
+      {user.avatarUrl ? (
+        <AvatarImage src={user.avatarUrl} alt={displayName} />
+      ) : (
+        <AvatarFallback>{initials}</AvatarFallback>
       )}
-      {...props}
-    >
-      {initials}
-    </div>
+    </BaseAvatar>
   );
 } 

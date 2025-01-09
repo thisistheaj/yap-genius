@@ -1,24 +1,61 @@
-import { json } from "@remix-run/node";
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { Outlet } from "@remix-run/react";
+import { json, type LoaderFunctionArgs, type ActionFunctionArgs, redirect } from "@remix-run/node";
+import { Outlet, useLoaderData, useRevalidator } from "@remix-run/react";
 import { Sidebar } from "~/components/layout/sidebar";
+import { ProfileSetupModal } from "~/components/profile-setup-modal";
+import { requireUser } from "~/session.server";
 import { getChannels, getPublicChannels, getDMs } from "~/models/channel.server";
-import { requireUserId } from "~/session.server";
-import { useLoaderData, useRevalidator } from "@remix-run/react";
+import type { Channel } from "~/models/channel.server";
+import { updateUser } from "~/models/user.server";
 import { useEffect, useCallback } from "react";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const userId = await requireUserId(request);
+export async function action({ request }: ActionFunctionArgs) {
+  const user = await requireUser(request);
+  const formData = await request.formData();
+  
+  const displayName = formData.get("displayName") as string;
+  const avatarUrl = formData.get("avatarUrl") as string;
+
+  if (!displayName || !avatarUrl) {
+    return json(
+      { error: "Display name and profile picture are required" },
+      { status: 400 }
+    );
+  }
+
+  await updateUser(user.id, {
+    displayName,
+    avatarUrl,
+  });
+
+  return redirect("/app");
+}
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const user = await requireUser(request);
+  const needsProfileSetup = !user.displayName || !user.avatarUrl;
+  
   const [channels, publicChannels, dms] = await Promise.all([
-    getChannels(userId),
-    getPublicChannels(userId),
-    getDMs(userId)
+    getChannels(user.id),
+    getPublicChannels(user.id),
+    getDMs(user.id)
   ]);
-  return json({ channels, publicChannels, dms });
+
+  return json({
+    user,
+    needsProfileSetup,
+    channels,
+    publicChannels,
+    dms,
+  });
+}
+
+type SerializedChannel = Omit<Channel, 'createdAt' | 'lastActivity'> & {
+  createdAt: string;
+  lastActivity: string;
 };
 
 export default function AppLayout() {
-  const { channels, publicChannels, dms } = useLoaderData<typeof loader>();
+  const { user, needsProfileSetup, channels, publicChannels, dms } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
 
   // Debounced revalidation to prevent too many refreshes
@@ -61,17 +98,29 @@ export default function AppLayout() {
     };
   }, [channels, publicChannels, dms, debouncedRevalidate]);
 
+  // Transform the serialized dates back to Date objects
+  const transformDates = (channel: SerializedChannel): Channel => ({
+    ...channel,
+    createdAt: new Date(channel.createdAt),
+    lastActivity: new Date(channel.lastActivity),
+  });
+
+  const transformedChannels = channels.map(transformDates);
+  const transformedPublicChannels = publicChannels.map(transformDates);
+  const transformedDms = dms.map(transformDates);
+
   return (
-    <div className="flex h-full">
+    <div className="flex h-screen">
       <Sidebar 
-        className="w-64 border-r" 
-        channels={channels} 
-        publicChannels={publicChannels}
-        dms={dms}
+        className="w-64 flex-shrink-0" 
+        channels={transformedChannels}
+        publicChannels={transformedPublicChannels}
+        dms={transformedDms}
       />
-      <main className="flex-1">
+      <main className="flex-1 overflow-auto">
         <Outlet />
       </main>
+      <ProfileSetupModal open={needsProfileSetup} />
     </div>
   );
 }

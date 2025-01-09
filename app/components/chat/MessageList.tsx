@@ -45,7 +45,7 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
 
   // Reset editing state when edit is complete
   useEffect(() => {
-    if (editFetcher.state === "idle" && editFetcher.data && 'ok' in editFetcher.data) {
+    if (editFetcher.state === "idle" && editFetcher.data && typeof editFetcher.data === 'object' && 'ok' in editFetcher.data) {
       setEditingMessageId(null);
       setEditContent("");
     }

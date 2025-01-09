@@ -85,3 +85,17 @@ export async function getUserPresence(userId: string) {
   });
   return user;
 }
+
+export async function updateUser(
+  userId: string,
+  data: {
+    displayName?: string | null;
+    avatarUrl?: string | null;
+    status?: string | null;
+  }
+) {
+  return prisma.user.update({
+    where: { id: userId },
+    data,
+  });
+}

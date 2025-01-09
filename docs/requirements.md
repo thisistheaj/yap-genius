@@ -97,13 +97,13 @@ So I know who's available
 As a user
 I want to share files
 So that I can collaborate effectively
-- [ ] Can upload files up to 50MB
-- [ ] Can see upload progress
-- [ ] Can cancel uploads
-- [ ] Can download shared files
-- [ ] Can preview images and PDFs
-- [ ] Get warning for large files
-- [ ] See file metadata (size, type)
+- [x] Can upload files up to 50MB
+- [x] Can see upload progress
+- [x] Can cancel uploads
+- [x] Can download shared files
+- [x] Can preview images and PDFs
+- [x] Get warning for large files
+- [x] See file metadata (size, type)
 
 ## 7. Profile
 
@@ -112,7 +112,7 @@ I want to create a profile
 So that I can be identified by others
 - [ ] Can set a profile picture
 - [ ] Can set a display name
-- [ ] Can set a status message
+- [x] Can set a status message
 - [ ] Am prompted to set a profile picture and display name on signup
 
 ## 8. Thread Support
@@ -124,7 +124,6 @@ So I can organize detailed discussions
 - [ ] Can reply in threads
 - [ ] Can see thread participant count
 - [ ] Can see thread reply count
-- [ ] Get notifications for thread replies
 - [ ] Can mute specific threads
 - [ ] Can follow threads I'm interested in
 
@@ -184,6 +183,7 @@ So that I can stay updated on conversations
 - [ ] can receive notifications for new reactions
 - [ ] can receive notifications for new @'s
 - [ ] can turn on notifications for selected channels
+- [ ] Get notifications for thread replies
 
 
 ## 13. Search

@@ -8,7 +8,6 @@ import { UserProfile } from "~/components/layout/user-profile";
 import { UserProfileView } from "~/components/layout/user-profile-popover";
 import { useParams } from "@remix-run/react";
 import type { Channel } from "~/models/channel.server";
-import { Input } from "~/components/ui/input";
 import { useState, useEffect } from "react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "~/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
@@ -206,7 +205,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                       <Link to={`/app/c/${channel.name}`}>
                         <span className="text-muted-foreground mr-2">#</span>
                         {channel.name}
-                        {channel.type === "private" && (
+                        {channel.type === "PRIVATE" && (
                           <Lock className="inline-block ml-2 h-3 w-3 text-muted-foreground" />
                         )}
                       </Link>
