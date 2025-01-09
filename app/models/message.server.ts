@@ -1,6 +1,138 @@
 import { prisma } from "~/db.server";
-import type { User } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { User, Message as PrismaMessage } from "@prisma/client";
 import { emitMessageEvent } from "~/utils.server";
+import type { Message } from "~/types";
+
+type MessageWithUser = PrismaMessage & {
+  user: User;
+};
+
+type ReactionWithUser = {
+  messageId: string;
+  emoji: string;
+  userId: string;
+  userEmail: string;
+  userUsername: string | null;
+  userDisplayName: string | null;
+  userAvatarUrl: string | null;
+};
+
+export async function getChannelMessages(channelId: string, parentId?: string | null): Promise<Message[]> {
+  const messages = await prisma.$transaction(async (tx) => {
+    const msgs = await tx.message.findMany({
+      where: {
+        channelId,
+        deletedAt: null,
+        parentId: parentId ?? null,
+      },
+      orderBy: { createdAt: "asc" },
+      include: {
+        user: true,
+        files: true,
+      },
+    });
+
+    // If no messages, return empty array early
+    if (msgs.length === 0) {
+      return [];
+    }
+
+    const messageIds = msgs.map(m => m.id);
+    
+    // Use raw query for reactions since messageReaction is not recognized
+    const reactions = await tx.$queryRaw<ReactionWithUser[]>`
+      SELECT 
+        mr.messageId,
+        mr.emoji,
+        u.id as "userId",
+        u.email as "userEmail",
+        u.username as "userUsername",
+        u.displayName as "userDisplayName",
+        u.avatarUrl as "userAvatarUrl"
+      FROM MessageReaction mr
+      JOIN User u ON mr.userId = u.id
+      WHERE mr.messageId IN (${Prisma.join(messageIds)})
+    `;
+
+    const replies = await tx.message.findMany({
+      where: {
+        parentId: { in: messageIds },
+        deletedAt: null,
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: true,
+      },
+    });
+
+    return msgs.map(message => {
+      const messageReactions = reactions
+        .filter((r) => r.messageId === message.id)
+        .reduce<NonNullable<Message["reactions"]>>((acc, reaction) => {
+          const existing = acc.find((r) => r.emoji === reaction.emoji);
+          if (existing) {
+            existing.users.push({
+              id: reaction.userId,
+              username: reaction.userUsername || null,
+              displayName: reaction.userDisplayName,
+              avatarUrl: reaction.userAvatarUrl,
+            });
+            existing.count++;
+          } else {
+            acc.push({
+              emoji: reaction.emoji,
+              users: [{
+                id: reaction.userId,
+                username: reaction.userUsername || null,
+                displayName: reaction.userDisplayName,
+                avatarUrl: reaction.userAvatarUrl,
+              }],
+              count: 1,
+            });
+          }
+          return acc;
+        }, []);
+
+      const messageReplies = replies
+        .filter((r: MessageWithUser) => r.parentId === message.id)
+        .map((reply: MessageWithUser) => ({
+          id: reply.id,
+          createdAt: reply.createdAt,
+          user: {
+            email: reply.user.email,
+            displayName: reply.user.displayName,
+          },
+        }));
+
+      return {
+        id: message.id,
+        content: message.content,
+        messageType: message.messageType as "system" | "message",
+        systemData: message.systemData,
+        createdAt: message.createdAt,
+        editedAt: message.editedAt,
+        user: {
+          id: message.user.id,
+          email: message.user.email,
+          displayName: message.user.displayName,
+          avatarUrl: message.user.avatarUrl,
+        },
+        files: message.files.map(file => ({
+          id: file.id,
+          name: file.name,
+          url: file.url,
+          size: file.size,
+          mimeType: file.mimeType,
+        })),
+        reactions: messageReactions,
+        replies: messageReplies,
+      };
+    });
+  });
+
+  return messages;
+}
 
 export async function createMessage({
   content,
@@ -43,64 +175,6 @@ export async function createMessage({
   emitMessageEvent(channelId, message);
 
   return message;
-}
-
-export async function getChannelMessages(channelId: string, parentId?: string | null) {
-  return prisma.message.findMany({
-    where: {
-      channelId,
-      deletedAt: null,
-      parentId: parentId ?? null, // Only get top-level messages or specific thread
-    },
-    orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      content: true,
-      messageType: true,
-      systemData: true,
-      createdAt: true,
-      editedAt: true,
-      user: {
-        select: {
-          id: true,
-          email: true,
-          displayName: true,
-          avatarUrl: true,
-        }
-      },
-      files: {
-        select: {
-          id: true,
-          name: true,
-          url: true,
-          size: true,
-          mimeType: true,
-        }
-      },
-      replies: {
-        where: { deletedAt: null },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: {
-          id: true,
-          createdAt: true,
-          user: {
-            select: {
-              email: true,
-              displayName: true,
-            }
-          }
-        }
-      },
-      _count: {
-        select: {
-          replies: {
-            where: { deletedAt: null }
-          },
-        },
-      },
-    },
-  });
 }
 
 export async function updateMessage({

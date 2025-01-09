@@ -188,7 +188,7 @@ export default function ChannelPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse">
-        <MessageList messages={messages} currentUserId={user.id} />
+        <MessageList messages={messages} currentUserId={user.id} channelName={channel.name} />
       </div>
 
       {/* Message Input */}

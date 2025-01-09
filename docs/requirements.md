@@ -132,7 +132,11 @@ So I can follow conversations easily
 - [x] Can see unread indicators for threads
 - [x] Can return to main channel view
 
-## 9. Emoji Reactions
+## 9. System Messages
+- [x] Can see when users join conversations
+- [x] Can see when users leave conversations
+
+## 10. Emoji Reactions
 
 As a user
 I want to react to messages
@@ -144,10 +148,6 @@ So I can respond quickly and expressively
 - [ ] Reactions update in real-time
 - [ ] Can see most used reactions first
 - [ ] Can search emoji picker
-
-## 10. System Messages
-- [x] Can see when users join conversations
-- [x] Can see when users leave conversations
 
 ## 11. Pagination
 
@@ -209,4 +209,5 @@ so that I can ensure the integrity of the platform
 
 ## 102. Fixes
 
-TBD
+- [ ] fix the position of the '#' in channel name when there is a description set
+-[ ] Invalid channel names are rejected ('new' etc)

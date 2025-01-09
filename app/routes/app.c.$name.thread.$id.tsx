@@ -112,12 +112,12 @@ export default function ThreadPage() {
       <div className="flex-1 overflow-y-auto p-4">
         {/* Parent Message */}
         <div className="mb-4 pb-4 border-b">
-          <MessageList messages={[parentMessage]} currentUserId={user.id} hideThreads />
+          <MessageList messages={[parentMessage]} currentUserId={user.id} hideThreads channelName={channel.name} />
         </div>
 
         {/* Replies */}
         <div className="space-y-4">
-          <MessageList messages={replies} currentUserId={user.id} hideThreads />
+          <MessageList messages={replies} currentUserId={user.id} hideThreads channelName={channel.name} />
         </div>
       </div>
 

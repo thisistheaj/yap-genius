@@ -19,26 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-
-interface Message {
-  id: string;
-  content: string;
-  createdAt: string | Date;
-  editedAt: string | Date | null;
-  user: {
-    id: string;
-    email: string;
-    displayName?: string | null;
-    avatarUrl?: string | null;
-  };
-  files: Array<{
-    id: string;
-    name: string;
-    url: string;
-    size: number;
-    mimeType: string;
-  }>;
-}
+import type { Message } from "~/types";
 
 interface Channel {
   id: string;
@@ -219,7 +200,7 @@ export default function DMPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse">
-        <MessageList messages={messages} currentUserId={user.id} />
+        <MessageList messages={messages} currentUserId={user.id} channelName={channel.id} />
       </div>
 
       {/* Message Input */}

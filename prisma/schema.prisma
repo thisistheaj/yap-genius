@@ -22,6 +22,7 @@ model User {
   channels        ChannelMember[]
   messages        Message[]
   files           File[]
+  reactions       MessageReaction[]
 }
 
 model Password {
@@ -75,6 +76,20 @@ model Message {
   user       User      @relation(fields: [userId], references: [id])
   channel    Channel   @relation(fields: [channelId], references: [id])
   files      File[]
+  reactions  MessageReaction[]
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
 }
 
 model File {

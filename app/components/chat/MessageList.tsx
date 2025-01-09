@@ -14,44 +14,17 @@ import {
 import { MoreVertical, MessageSquare } from "lucide-react";
 import { Link } from "@remix-run/react";
 import { SystemMessage } from "./SystemMessage";
-
-interface Message {
-  id: string;
-  messageType?: "system" | "message";
-  content: string;
-  createdAt: string | Date;
-  editedAt: string | Date | null;
-  user: {
-    id: string;
-    email: string;
-    displayName?: string | null;
-    avatarUrl?: string | null;
-  };
-  files: Array<{
-    id: string;
-    name: string;
-    url: string;
-    size: number;
-    mimeType: string;
-  }>;
-  replies?: Array<{
-    id: string;
-    createdAt: string | Date;
-    user: {
-      displayName?: string | null;
-      email: string;
-    };
-  }>;
-  systemData?: string;
-}
+import { MessageReactions } from "./MessageReactions";
+import type { Message } from "~/types";
 
 interface MessageListProps {
   messages: Message[];
   currentUserId: string;
   hideThreads?: boolean;
+  channelName: string;
 }
 
-export function MessageList({ messages, currentUserId, hideThreads = false }: MessageListProps) {
+export function MessageList({ messages, currentUserId, hideThreads = false, channelName }: MessageListProps) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const editFetcher = useFetcher();
@@ -195,6 +168,14 @@ export function MessageList({ messages, currentUserId, hideThreads = false }: Me
                       ))}
                     </div>
                   )}
+                  <div className="mt-2">
+                    <MessageReactions
+                      messageId={message.id}
+                      channelName={channelName}
+                      reactions={message.reactions || []}
+                      currentUserId={currentUserId}
+                    />
+                  </div>
                   {!hideThreads && message.replies && message.replies.length > 0 && (
                     <div className="mt-2 border-l-2 border-muted pl-3">
                       <Link
