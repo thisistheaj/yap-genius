@@ -141,13 +141,13 @@ So I can follow conversations easily
 As a user
 I want to react to messages
 So I can respond quickly and expressively
-- [ ] Can add emoji reactions
-- [ ] Can remove my reactions
-- [ ] Can see who reacted
-- [ ] Can see reaction counts
-- [ ] Reactions update in real-time
-- [ ] Can see most used reactions first
-- [ ] Can search emoji picker
+- [x] Can add emoji reactions
+- [x] Can remove my reactions
+- [x] Can see who reacted
+- [x] Can see reaction counts
+- [x] Reactions update in real-time
+- [x] Can see most used reactions first
+- [x] Can search emoji picker
 
 ## 11. Pagination
 
