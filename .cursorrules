@@ -18,3 +18,8 @@ always run migrations and regenerate the prisma client after you make changes to
 
 the cli formerly named 'shadcn-ui' is now called 'shadcn', use the new name to install shadcn components.
 
+Always use 'git add .' when I ask to commit & rememeber to be careful about not having newline characters for the commit message.
+
+We prefer conventional commits.
+
+
