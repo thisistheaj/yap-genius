@@ -214,5 +214,5 @@ so that I can ensure the integrity of the platform
 -[x] lock icon on private channels
 -[x] send image without text
 -[x] send file without text
--[ ] SSE for Channels
+-[X] SSE for Channels
 -[ ] optimize channel load time (important because it blocks all dropdown uis)

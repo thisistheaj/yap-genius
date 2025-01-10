@@ -255,7 +255,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                         {dm.type === "DM" && (
                           <div className={cn(
                             "h-2 w-2 flex-shrink-0 rounded-full",
-                            isOnline ? "bg-green-500" : "bg-muted"
+                            isOnline ? "bg-green-500" : "bg-slate-500"
                           )} />
                         )}
                         <span className="truncate">{displayName}</span>
