@@ -379,4 +379,18 @@ export async function getDMs(userId: string): Promise<Channel[]> {
   });
 
   return dms as unknown as Channel[];
+}
+
+export async function updateLastRead(userId: string, channelId: string): Promise<void> {
+  await prisma.channelMember.update({
+    where: {
+      channelId_userId: {
+        channelId,
+        userId,
+      },
+    },
+    data: {
+      lastRead: new Date(),
+    },
+  });
 } 

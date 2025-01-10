@@ -4,7 +4,7 @@ import { useLoaderData, useRevalidator, Form } from "@remix-run/react";
 import invariant from "tiny-invariant";
 import { useEffect } from "react";
 
-import { getChannelById } from "~/models/channel.server";
+import { getChannelById, updateLastRead } from "~/models/channel.server";
 import { createMessage, getChannelMessages, updateMessage, deleteMessage } from "~/models/message.server";
 import { requireUserId } from "~/session.server";
 import { MessageList } from "~/components/chat/MessageList";
@@ -56,6 +56,9 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 
   const messages = await getChannelMessages(channel.id);
   const otherMembers = channel.members.filter(m => m.userId !== userId);
+  
+  // Mark DM as read
+  await updateLastRead(userId, channel.id);
   
   return json({ channel, messages, otherMembers });
 };

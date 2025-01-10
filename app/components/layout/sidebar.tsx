@@ -15,6 +15,7 @@ import { StarIcon } from "~/components/icons/star-icon";
 import { Lock } from "lucide-react";
 import type { loader as presenceLoader } from "~/routes/presence.ping";
 import type { User } from "~/models/user.server";
+
 function formatLastSeen(date: Date): string {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
@@ -83,13 +84,22 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
     }
   }, [presenceFetcher.data]);
 
-  // Sort channels with favorites first
+  // Sort channels by activity and favorites
   const sortedChannels = [...channels].sort((a, b) => {
     const aIsFavorite = a.members.some(m => m.userId === user.id && m.isFavorite);
     const bIsFavorite = b.members.some(m => m.userId === user.id && m.isFavorite);
+    
+    // First sort by favorites
     if (aIsFavorite && !bIsFavorite) return -1;
     if (!aIsFavorite && bIsFavorite) return 1;
-    return 0;
+    
+    // Then sort by activity
+    return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
+  });
+
+  // Sort DMs by activity
+  const sortedDMs = [...dms].sort((a, b) => {
+    return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
   });
 
   const handleToggleFavorite = (channelId: string) => {
@@ -106,6 +116,13 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
       return otherUser.displayName || otherUser.email;
     }
     return `Group: ${otherMembers.map(m => m.user.displayName || m.user.email).join(", ")}`;
+  };
+
+  const isUnread = (channel: Channel) => {
+    const member = channel.members.find(m => m.userId === user.id);
+    console.log(member);
+    if (!member?.lastRead) return true;
+    return new Date(channel.lastActivity).getTime() > new Date(member.lastRead).getTime();
   };
 
   return (
@@ -194,20 +211,32 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
               {sortedChannels?.map((channel) => {
                 const isActive = channel.name === params.name;
                 const isFavorite = channel.members.some(m => m.userId === user.id && m.isFavorite);
+                const hasUnread = !isActive && isUnread(channel);
                 
                 return (
                   <div key={channel.id} className="flex items-center">
                     <Button
                       asChild
                       variant={isActive ? "secondary" : "ghost"}
-                      className="w-full justify-start"
+                      className={cn(
+                        "w-full justify-start",
+                        hasUnread && "font-semibold"
+                      )}
                     >
                       <Link to={`/app/c/${channel.name}`}>
-                        <span className="text-muted-foreground mr-2">#</span>
-                        {channel.name}
-                        {channel.type.toUpperCase() === "PRIVATE" && (
-                          <Lock className="inline-block ml-2 h-3 w-3 text-muted-foreground" />
-                        )}
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            "text-muted-foreground",
+                            hasUnread && "text-foreground"
+                          )}>#</span>
+                          {channel.name}
+                          {channel.type.toUpperCase() === "PRIVATE" && (
+                            <Lock className="inline-block ml-2 h-3 w-3 text-muted-foreground" />
+                          )}
+                          {hasUnread && (
+                            <div className="ml-auto h-2 w-2 rounded-full bg-blue-500" />
+                          )}
+                        </div>
                       </Link>
                     </Button>
                     <Button
@@ -232,7 +261,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
               </Button>
             </div>
             <div className="space-y-1">
-              {dms?.map((dm) => {
+              {sortedDMs?.map((dm) => {
                 const isActive = dm.id === params.id;
                 const otherMembers = dm.members.filter(m => m.userId !== user.id);
                 const displayName = getDMDisplayName(dm);
@@ -242,13 +271,17 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                 const now = Date.now();
                 const oneMinuteAgo = now - 60 * 1000;
                 const isOnline = lastSeenTime && lastSeenTime > oneMinuteAgo;
+                const hasUnread = !isActive && isUnread(dm);
 
                 const button = (
                   <Button
                     key={dm.id}
                     asChild
                     variant={isActive ? "secondary" : "ghost"}
-                    className="w-full justify-start relative group"
+                    className={cn(
+                      "w-full justify-start relative group",
+                      hasUnread && "font-semibold"
+                    )}
                   >
                     <Link to={`/app/dm/${dm.id}`}>
                       <div className="flex items-center gap-2 min-w-0">
@@ -263,6 +296,9 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                           <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
                             • {presence.status}
                           </span>
+                        )}
+                        {hasUnread && (
+                          <div className="ml-auto h-2 w-2 rounded-full bg-blue-500" />
                         )}
                       </div>
                     </Link>

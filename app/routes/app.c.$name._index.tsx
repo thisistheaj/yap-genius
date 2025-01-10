@@ -4,7 +4,7 @@ import { Link, Form, isRouteErrorResponse, useLoaderData, useRouteError, useReva
 import invariant from "tiny-invariant";
 import { useEffect } from "react";
 
-import { getChannel } from "~/models/channel.server";
+import { getChannel, updateLastRead } from "~/models/channel.server";
 import { createMessage, getChannelMessages, updateMessage, deleteMessage } from "~/models/message.server";
 import { requireUserId } from "~/session.server";
 import { Avatar } from "~/components/shared/Avatar";
@@ -40,6 +40,9 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 
   const messages = await getChannelMessages(channel.id);
   const isOwner = channel.createdBy === userId;
+  
+  // Mark channel as read
+  await updateLastRead(userId, channel.id);
   
   return json<LoaderData>({ channel, messages, isOwner });
 };
