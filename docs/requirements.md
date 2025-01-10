@@ -215,9 +215,9 @@ so that I can ensure the integrity of the platform
 -[x] send image without text
 -[x] send file without text
 -[X] SSE for Channels
--[ ] remove logs
+-[x] remove logs
+-[x] clickable users names in user search
 -[ ] fix error msgs
 -[ ] optimize channel load time (important because it blocks all dropdown uis)
--[ ] clickable users names in user search
 -[ ] buggy search results
 

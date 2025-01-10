@@ -196,7 +196,6 @@ export async function leaveChannel(userId: string, channelName: string): Promise
 }
 
 export async function searchUsers(query: string, excludeUserIds: string[] = []): Promise<User[]> {
-  console.log("Search params:", { query, excludeUserIds }); // Debug log
   const searchQuery = query.toLowerCase();
   const users = await prisma.user.findMany({
     where: {
@@ -214,7 +213,6 @@ export async function searchUsers(query: string, excludeUserIds: string[] = []):
     },
     take: 5,
   });
-  console.log("Found users:", users); // Debug log
   return users as unknown as User[];
 }
 

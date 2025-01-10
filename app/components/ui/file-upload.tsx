@@ -116,7 +116,6 @@ export function FileUpload({
 
   const handleUpload = async () => {
     if (!selectedFile) return;
-    console.log("handleUpload");
     await uploadSelectedFile(selectedFile);
   };
 
@@ -124,7 +123,6 @@ export function FileUpload({
   const isUploading = uploadProgress > 0 && uploadProgress < 100;
 
   const handleSelectAndUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("handleSelectAndUpload");
     await handleFileSelect(event);
     await handleUpload();
   }

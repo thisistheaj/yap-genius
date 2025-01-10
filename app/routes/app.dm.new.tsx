@@ -13,10 +13,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const userId = await requireUserId(request);
   const url = new URL(request.url);
   const query = url.searchParams.get("q") || "";
-  console.log("DM Search Query:", query);
 
   const users = await searchUsers(query, [userId]);
-  console.log("Search Results:", users);
   return json({ users });
 };
 

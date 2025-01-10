@@ -37,16 +37,11 @@ export function MessageList({ messages, currentUserId, hideThreads = false, chan
     }
   }, [editFetcher.state, editFetcher.data]);
 
-  console.log("Rendering messages:", messages);
-
   return (
     <div className="flex flex-col gap-4">
       {messages.map((message) => {
-        console.log("Processing message:", message);
         if (message.messageType === "system" && message.systemData) {
-          console.log("Found system message:", message);
           const systemData = JSON.parse(message.systemData);
-          console.log("Parsed system data:", systemData);
           return (
             <SystemMessage
               key={message.id}

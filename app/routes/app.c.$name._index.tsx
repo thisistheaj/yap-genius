@@ -39,7 +39,6 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   }
 
   const messages = await getChannelMessages(channel.id);
-  console.log("Loaded messages:", messages);
   const isOwner = channel.createdBy === userId;
   
   return json<LoaderData>({ channel, messages, isOwner });
