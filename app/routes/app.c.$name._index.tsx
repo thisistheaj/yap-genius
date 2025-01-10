@@ -126,7 +126,7 @@ export default function ChannelPage() {
 
   useEffect(() => {
     // Connect to SSE endpoint for messages
-    const messageSource = new EventSource(`/app/c/${channel.name}/messages/subscribe`);
+    const messageSource = new EventSource(`/messages/subscribe?channelId=${channel.id}`);
     // Connect to SSE endpoint for system events
     const systemSource = new EventSource(`/app/c/${channel.name}/events`);
     
@@ -142,7 +142,7 @@ export default function ChannelPage() {
       messageSource.close();
       systemSource.close();
     };
-  }, [channel.name, revalidator]);
+  }, [channel.id, channel.name, revalidator]);
 
   return (
     <div className="flex flex-col h-full">
