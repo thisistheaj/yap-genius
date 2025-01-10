@@ -166,9 +166,9 @@ So that I can stay updated on conversations
 As a user
 I want to see unread indicators
 So that I can know what I have not read
-- [ ] Can see unread indicators
-- [ ] Can sort channels by activity
-- [ ] Can mute channels/DMs
+- [x] Can see unread indicators
+- [x] Can sort channels by activity
+- [x] Can mute channels/DMs
 
 As a user
 I want to receive notifications

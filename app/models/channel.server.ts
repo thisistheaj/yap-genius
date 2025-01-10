@@ -39,7 +39,7 @@ export async function createChannel({
 export async function getChannels(userId: string): Promise<Channel[]> {
   const channels = await prisma.channel.findMany({
     where: {
-      type: { in: ["public", "private"] },
+      type: { in: ["public", "private "] },
       members: {
         some: {
           userId

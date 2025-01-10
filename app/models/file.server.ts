@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs/promises";
 import { fileTypeFromBuffer } from "file-type";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public/uploads");
+const UPLOAD_DIR = path.join(process.cwd(), "data/uploads");
 
 // Ensure upload directory exists
 async function ensureUploadDir() {

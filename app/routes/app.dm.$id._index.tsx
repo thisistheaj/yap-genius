@@ -13,6 +13,7 @@ import { Avatar } from "~/components/shared/Avatar";
 import { useUser } from "~/utils";
 import { Button } from "~/components/ui/button";
 import { MoreVertical } from "lucide-react";
+import { emitReadStateEvent } from "~/routes/readstate.subscribe";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +60,9 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   
   // Mark DM as read
   await updateLastRead(userId, channel.id);
+  
+  // Emit read state event
+  emitReadStateEvent({ userId, channelId: channel.id });
   
   return json({ channel, messages, otherMembers });
 };

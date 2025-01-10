@@ -16,6 +16,7 @@ import type { Channel, Message } from "~/types";
 import { MessageList } from "~/components/chat/MessageList";
 import { MessageInput } from "~/components/chat/MessageInput";
 import { MoreVertical } from "lucide-react";
+import { emitReadStateEvent } from "~/routes/readstate.subscribe";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,9 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   
   // Mark channel as read
   await updateLastRead(userId, channel.id);
+  
+  // Emit read state event
+  emitReadStateEvent({ userId, channelId: channel.id });
   
   return json<LoaderData>({ channel, messages, isOwner });
 };

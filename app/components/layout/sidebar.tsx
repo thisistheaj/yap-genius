@@ -1,4 +1,4 @@
-import { Link, useFetcher } from "@remix-run/react";
+import { Link, useFetcher, useRevalidator } from "@remix-run/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
 import { cn } from "~/lib/utils";
@@ -43,6 +43,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
   const [open, setOpen] = useState(false);
   const fetcher = useFetcher();
   const presenceFetcher = useFetcher<typeof presenceLoader>();
+  const revalidator = useRevalidator();
   const [presenceData, setPresenceData] = useState<Record<string, { lastSeen: string; status?: string }>>({});
 
   // Poll for presence updates
@@ -68,6 +69,19 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
       clearInterval(intervalId);
     };
   }, []); // Empty deps since we only want this to run once on mount
+
+  // Listen for read state events
+  useEffect(() => {
+    const eventSource = new EventSource("/readstate/subscribe");
+    
+    eventSource.addEventListener("readstate", () => {
+      revalidator.revalidate();
+    });
+
+    return () => {
+      eventSource.close();
+    };
+  }, [revalidator]);
 
   // Update presence data when we get new data
   useEffect(() => {

@@ -17,6 +17,7 @@ export interface Channel {
     userId: string;
     role: "OWNER" | "ADMIN" | "MEMBER";
     isFavorite: boolean;
+    lastRead?: Date | null;
     user: User;
   }>;
 }
