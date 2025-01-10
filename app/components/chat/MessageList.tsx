@@ -66,7 +66,7 @@ export function MessageList({ messages, currentUserId, hideThreads = false, chan
                   {message.user.displayName || message.user.email}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {formatLastSeen(message.createdAt)}
+                  {formatLastSeen(message.createdAt as Date)}
                 </span>
                 {message.editedAt && (
                   <span className="text-xs text-muted-foreground">(edited)</span>
@@ -186,7 +186,7 @@ export function MessageList({ messages, currentUserId, hideThreads = false, chan
                             const lastReply = message.replies[message.replies.length - 1];
                             return lastReply && (
                               <span className="text-xs">
-                                Latest reply {formatLastSeen(lastReply.createdAt)} by {' '}
+                                Latest reply {formatLastSeen(lastReply.createdAt as Date)} by {' '}
                                 {lastReply.user.displayName || lastReply.user.email}
                               </span>
                             );

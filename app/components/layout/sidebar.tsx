@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover
 import { StarIcon } from "~/components/icons/star-icon";
 import { Lock } from "lucide-react";
 import type { loader as presenceLoader } from "~/routes/presence.ping";
-
+import type { User } from "~/models/user.server";
 function formatLastSeen(date: Date): string {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
@@ -272,7 +272,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                 return dm.type === "DM" && otherUser ? (
                   <UserProfileView
                     key={dm.id}
-                    user={otherUser}
+                    user={otherUser as User}
                     lastSeen={presence?.lastSeen}
                     status={presence?.status}
                   >
