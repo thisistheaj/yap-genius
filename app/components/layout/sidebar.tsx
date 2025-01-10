@@ -7,13 +7,15 @@ import { useUser } from "~/utils";
 import { UserProfile } from "~/components/layout/user-profile";
 import { UserProfileView } from "~/components/layout/user-profile-popover";
 import { useParams } from "@remix-run/react";
-import type { Channel } from "~/models/channel.server";
+import type { Channel, ChannelWithUnread } from "~/models/channel.server";
 import { useState, useEffect } from "react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "~/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { StarIcon } from "~/components/icons/star-icon";
 import { Lock } from "lucide-react";
 import type { loader as presenceLoader } from "~/routes/presence.ping";
+import { Badge } from "~/components/ui/badge";
+import { useRevalidator } from "@remix-run/react";
 
 function formatLastSeen(date: Date): string {
   const now = new Date();
@@ -31,9 +33,9 @@ function formatLastSeen(date: Date): string {
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   isCollapsed?: boolean;
-  channels: Channel[];
+  channels: ChannelWithUnread[];
   publicChannels: Channel[];
-  dms: Channel[];
+  dms: ChannelWithUnread[];
 }
 
 export function Sidebar({ className, isCollapsed, channels, publicChannels, dms }: SidebarProps) {
@@ -43,6 +45,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
   const fetcher = useFetcher();
   const presenceFetcher = useFetcher<typeof presenceLoader>();
   const [presenceData, setPresenceData] = useState<Record<string, { lastSeen: string; status?: string }>>({});
+  const revalidator = useRevalidator();
 
   // Poll for presence updates
   useEffect(() => {
@@ -82,6 +85,53 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
       setPresenceData(newPresenceData);
     }
   }, [presenceFetcher.data]);
+
+  // Subscribe to read state updates
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+
+    const connect = () => {
+      console.log('Setting up read state SSE connection');
+      eventSource = new EventSource('/readstate/subscribe');
+      
+      eventSource.addEventListener("open", () => {
+        console.log('SSE connection opened');
+      });
+
+      eventSource.addEventListener("error", (error) => {
+        console.error('SSE connection error:', error);
+        // Try to reconnect on error
+        if (eventSource) {
+          eventSource.close();
+          setTimeout(connect, 1000);
+        }
+      });
+      
+      eventSource.addEventListener("readState", (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Received read state event:', data);
+          // Only revalidate if this event is for a channel we're showing
+          const channelIds = [...channels, ...dms].map(c => c.id);
+          if (data.channelId && channelIds.includes(data.channelId)) {
+            revalidator.revalidate();
+          }
+        } catch (error) {
+          console.error('Error handling read state event:', error);
+        }
+      });
+    };
+
+    connect();
+
+    return () => {
+      console.log('Cleaning up SSE connection');
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    };
+  }, [channels, dms, revalidator]); // Include dependencies we're using inside
 
   // Sort channels with favorites first
   const sortedChannels = [...channels].sort((a, b) => {
@@ -194,6 +244,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
               {sortedChannels?.map((channel) => {
                 const isActive = channel.name === params.name;
                 const isFavorite = channel.members.some(m => m.userId === user.id && m.isFavorite);
+                const unreadCount = channel.unreadCount ?? 0;
                 
                 return (
                   <div key={channel.id} className="flex items-center">
@@ -202,11 +253,18 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                       variant={isActive ? "secondary" : "ghost"}
                       className="w-full justify-start"
                     >
-                      <Link to={`/app/c/${channel.name}`}>
-                        <span className="text-muted-foreground mr-2">#</span>
-                        {channel.name}
-                        {channel.type === "PRIVATE" && (
-                          <Lock className="inline-block ml-2 h-3 w-3 text-muted-foreground" />
+                      <Link to={`/app/c/${channel.name}`} className="flex items-center justify-between">
+                        <div>
+                          <span className="text-muted-foreground mr-2">#</span>
+                          {channel.name}
+                          {channel.type === "PRIVATE" && (
+                            <Lock className="inline-block ml-2 h-3 w-3 text-muted-foreground" />
+                          )}
+                        </div>
+                        {unreadCount > 0 && (
+                          <Badge variant="secondary" className="ml-2">
+                            {unreadCount}
+                          </Badge>
                         )}
                       </Link>
                     </Button>
@@ -236,49 +294,39 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                 const isActive = dm.id === params.id;
                 const otherMembers = dm.members.filter(m => m.userId !== user.id);
                 const displayName = getDMDisplayName(dm);
-                const otherUser = dm.type === "DM" ? otherMembers[0].user : null;
+                const otherUser = dm.type === "DM" ? otherMembers[0]?.user : null;
                 const presence = otherUser ? presenceData[otherUser.id] : null;
                 const lastSeenTime = presence?.lastSeen ? new Date(presence.lastSeen).getTime() : null;
                 const now = Date.now();
                 const oneMinuteAgo = now - 60 * 1000;
                 const isOnline = lastSeenTime && lastSeenTime > oneMinuteAgo;
+                const unreadCount = dm.unreadCount ?? 0;
 
-                const button = (
+                return (
                   <Button
                     key={dm.id}
                     asChild
                     variant={isActive ? "secondary" : "ghost"}
-                    className="w-full justify-start relative group"
+                    className="w-full justify-start"
                   >
-                    <Link to={`/app/dm/${dm.id}`}>
-                      <div className="flex items-center gap-2 min-w-0">
-                        {dm.type === "DM" && (
-                          <div className={cn(
-                            "h-2 w-2 flex-shrink-0 rounded-full",
-                            isOnline ? "bg-green-500" : "bg-muted"
-                          )} />
-                        )}
-                        <span className="truncate">{displayName}</span>
-                        {presence?.status && (
-                          <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
-                            • {presence.status}
-                          </span>
-                        )}
+                    <Link to={`/app/dm/${dm.id}`} className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="relative">
+                          {otherUser && <UserProfileView user={otherUser} />}
+                          {isOnline && (
+                            <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500" />
+                          )}
+                        </div>
+                        <span className="ml-2 truncate">{displayName}</span>
                       </div>
+                      {unreadCount > 0 && (
+                        <Badge variant="secondary" className="ml-2">
+                          {unreadCount}
+                        </Badge>
+                      )}
                     </Link>
                   </Button>
                 );
-
-                return dm.type === "DM" && otherUser ? (
-                  <UserProfileView
-                    key={dm.id}
-                    user={otherUser}
-                    lastSeen={presence?.lastSeen}
-                    status={presence?.status}
-                  >
-                    {button}
-                  </UserProfileView>
-                ) : button;
               })}
             </div>
           </div>

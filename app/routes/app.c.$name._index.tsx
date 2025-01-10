@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { updateChannelReadState, toggleChannelMute } from "~/models/channel.server";
 
 type LoaderData = {
   channel: Channel;
@@ -38,10 +39,17 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
     throw new Response("Not Found", { status: 404 });
   }
 
+  if (channel.type !== "PUBLIC" && !channel.members.some(m => m.userId === userId)) {
+    throw new Response("Not authorized", { status: 403 });
+  }
+
   const messages = await getChannelMessages(channel.id);
   console.log("Loaded messages:", messages);
   const isOwner = channel.createdBy === userId;
   
+  // Mark channel as read
+  await updateChannelReadState(channel.id, userId);
+
   return json<LoaderData>({ channel, messages, isOwner });
 };
 
@@ -95,6 +103,12 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
     return json({ ok: true });
   }
 
+  if (action === "toggleMute") {
+    const channelId = formData.get("channelId") as string;
+    await toggleChannelMute(channelId, userId);
+    return json({ ok: true });
+  }
+
   // Handle regular message creation
   const content = formData.get("content");
   const fileIds = formData.getAll("fileIds[]") as string[];
@@ -123,26 +137,25 @@ export default function ChannelPage() {
   const fetcher = useFetcher();
 
   const isFavorite = channel.members.some(m => m.userId === user.id && m.isFavorite);
+  const currentMember = channel.members.find(m => m.userId === user.id);
 
   useEffect(() => {
     // Connect to SSE endpoint for messages
-    const messageSource = new EventSource(`/app/c/${channel.name}/messages/subscribe`);
-    // Connect to SSE endpoint for system events
-    const systemSource = new EventSource(`/app/c/${channel.name}/events`);
+    const messageSource = new EventSource(`/messages/subscribe?channelId=${channel.id}`);
     
-    messageSource.addEventListener("message", () => {
+    messageSource.addEventListener("message", (event) => {
+      console.log('Received message event:', event);
       revalidator.revalidate();
     });
 
-    systemSource.addEventListener("system", () => {
-      revalidator.revalidate();
+    messageSource.addEventListener("error", (error) => {
+      console.error('Message SSE error:', error);
     });
 
     return () => {
       messageSource.close();
-      systemSource.close();
     };
-  }, [channel.name, revalidator]);
+  }, [channel.id, revalidator]);
 
   return (
     <div className="flex flex-col h-full">
@@ -168,19 +181,36 @@ export default function ChannelPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {isOwner ? (
-                <DropdownMenuItem asChild>
-                  <Link to="settings">Channel Settings</Link>
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem asChild>
-                  <Form action="leave" method="post">
-                    <button type="submit" className="w-full text-left text-red-600">
-                      Leave Channel
-                    </button>
-                  </Form>
-                </DropdownMenuItem>
+              {isOwner && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link to="settings">Channel Settings</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Form action="delete" method="post">
+                      <button type="submit" className="w-full text-left text-red-600">
+                        Delete Channel
+                      </button>
+                    </Form>
+                  </DropdownMenuItem>
+                </>
               )}
+              <DropdownMenuItem asChild>
+                <Form method="post">
+                  <input type="hidden" name="_action" value="toggleMute" />
+                  <input type="hidden" name="channelId" value={channel.id} />
+                  <button type="submit" className="w-full text-left">
+                    {currentMember?.isMuted ? "Unmute Channel" : "Mute Channel"}
+                  </button>
+                </Form>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Form action="leave" method="post">
+                  <button type="submit" className="w-full text-left text-red-600">
+                    Leave Channel
+                  </button>
+                </Form>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

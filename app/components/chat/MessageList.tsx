@@ -22,9 +22,11 @@ interface MessageListProps {
   currentUserId: string;
   hideThreads?: boolean;
   channelName: string;
+  isDM?: boolean;
+  channelId?: string;
 }
 
-export function MessageList({ messages, currentUserId, hideThreads = false, channelName }: MessageListProps) {
+export function MessageList({ messages, currentUserId, hideThreads = false, channelName, isDM = false, channelId }: MessageListProps) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const editFetcher = useFetcher();
@@ -124,7 +126,11 @@ export function MessageList({ messages, currentUserId, hideThreads = false, chan
                       </>
                     )}
                     <DropdownMenuItem asChild>
-                      <Link to={`thread/${message.id}`} className="cursor-pointer">
+                      <Link 
+                        to={`thread/${message.id}`}
+                        className="cursor-pointer" 
+                        preventScrollReset
+                      >
                         Reply in Thread
                       </Link>
                     </DropdownMenuItem>
@@ -181,6 +187,7 @@ export function MessageList({ messages, currentUserId, hideThreads = false, chan
                       <Link
                         to={`thread/${message.id}`}
                         className="group flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                        preventScrollReset
                       >
                         <MessageSquare className="h-4 w-4" />
                         <div className="flex flex-col">

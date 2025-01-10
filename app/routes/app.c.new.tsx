@@ -43,12 +43,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const channel = await createChannel({
       name,
       description,
-      type: isPrivate ? "private" : "public",
-      createdBy: userId,
+      type: isPrivate ? "PRIVATE" : "PUBLIC",
+      userId,
     });
 
     return redirect(`/app/c/${channel.name}`);
   } catch (error) {
+    console.error("Channel creation error:", error);
     return json(
       { errors: { form: "An error occurred while creating the channel." } },
       { status: 500 }

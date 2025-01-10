@@ -1,92 +1,138 @@
 import { prisma } from "~/db.server";
-import type { Channel, User } from "~/types";
-export type { Channel };
+import type { Channel as PrismaChannel, ChannelMember, User } from "@prisma/client";
+import { emitReadStateEvent } from "~/utils.server";
+
+export type ChannelType = "PUBLIC" | "PRIVATE" | "DM" | "GROUP_DM";
+export type ChannelRole = "OWNER" | "ADMIN" | "MEMBER";
+
+export type Channel = {
+  id: string;
+  name: string;
+  type: ChannelType;
+  description?: string | null;
+  createdAt: Date;
+  createdBy: string;
+  lastActivity: Date;
+  members: Array<{
+    userId: string;
+    role: ChannelRole;
+    isFavorite: boolean;
+    isMuted: boolean;
+    user: User;
+  }>;
+  readStates?: Array<{
+    userId: string;
+    lastReadAt: Date;
+  }>;
+};
+
+export type SerializedChannel = Omit<Channel, 'createdAt' | 'lastActivity' | 'members' | 'readStates'> & {
+  createdAt: string;
+  lastActivity: string;
+  members: Array<{
+    userId: string;
+    role: ChannelRole;
+    isFavorite: boolean;
+    isMuted: boolean;
+    user: Omit<User, 'lastSeen' | 'createdAt' | 'updatedAt'> & {
+      lastSeen: string | null;
+      createdAt: string;
+      updatedAt: string;
+    };
+  }>;
+  readStates?: Array<{
+    userId: string;
+    lastReadAt: string;
+  }>;
+};
+
+export type ChannelWithUnread = Channel & { unreadCount?: number };
+export type SerializedChannelWithUnread = SerializedChannel & { unreadCount?: number };
 
 export async function createChannel({ 
-  name, 
-  type = "public",
+  name,
+  type = "PUBLIC",
   description,
-  createdBy 
-}: { 
+  userId,
+}: {
   name: string;
+  type?: ChannelType;
   description?: string;
-  type?: Channel["type"];
-  createdBy: string;
-}): Promise<Channel> {
+  userId: string;
+}) {
   const channel = await prisma.channel.create({
-    data: { 
-      name, 
-      type, 
+    data: {
+      name,
+      type: type.toString(),
       description,
-      createdBy,
+      createdBy: userId,
       members: {
         create: {
-          userId: createdBy,
+          userId,
         },
       },
     },
     include: {
       members: {
         include: {
-          user: true
-        }
-      }
-    }
+          user: true,
+        },
+      },
+    },
   });
+
   return channel as unknown as Channel;
 }
 
-export async function getChannels(userId: string): Promise<Channel[]> {
+export async function getChannels(userId: string) {
   const channels = await prisma.channel.findMany({
     where: {
-      type: { in: ["public", "private"] },
+      type: {
+        in: ["PUBLIC", "PRIVATE"],
+      },
       members: {
         some: {
-          userId
-        }
-      }
-    },
-    include: {
-      members: {
-        include: {
-          user: true
-        }
-      }
-    },
-    orderBy: {
-      lastActivity: "desc"
-    }
-  });
-
-  // Sort channels with favorites first
-  return (channels as unknown as Channel[]).sort((a, b) => {
-    const aIsFavorite = a.members.some(m => m.userId === userId && m.isFavorite);
-    const bIsFavorite = b.members.some(m => m.userId === userId && m.isFavorite);
-    if (aIsFavorite && !bIsFavorite) return -1;
-    if (!aIsFavorite && bIsFavorite) return 1;
-    return 0;
-  });
-}
-
-export async function getPublicChannels(userId: string): Promise<Channel[]> {
-  const channels = await prisma.channel.findMany({
-    where: {
-      type: "public",
-      members: {
-        none: {
-          userId
-        }
-      }
+          userId,
+        },
+      },
     },
     orderBy: { lastActivity: "desc" },
     include: {
       members: {
         include: {
-          user: true
+          user: true,
+        },
+      },
+      readStates: {
+        where: {
+          userId,
         },
       },
     },
   });
+
+  return channels as unknown as Channel[];
+}
+
+export async function getPublicChannels(userId: string) {
+  const channels = await prisma.channel.findMany({
+    where: {
+      type: "PUBLIC",
+      members: {
+        none: {
+          userId,
+        },
+      },
+    },
+    include: {
+      members: {
+        include: {
+          user: true,
+        },
+      },
+    },
+  });
+
   return channels as unknown as Channel[];
 }
 
@@ -148,14 +194,14 @@ export async function ensureDefaultChannels(userId: string) {
 export async function joinChannel(userId: string, channelName: string): Promise<Channel> {
   const channel = await getChannel(channelName);
   if (!channel) throw new Error("Channel not found");
-  if (channel.type !== "public") throw new Error("Cannot join private channel");
+  if (channel.type !== "PUBLIC") throw new Error("Cannot join private channel");
 
   const updatedChannel = await prisma.channel.update({
     where: { name: channelName },
     data: {
       members: {
         create: {
-          userId
+          userId,
         }
       }
     },
@@ -373,7 +419,12 @@ export async function getDMs(userId: string): Promise<Channel[]> {
         include: {
           user: true
         }
-      }
+      },
+      readStates: {
+        where: {
+          userId,
+        },
+      },
     },
     orderBy: {
       lastActivity: "desc"
@@ -381,4 +432,111 @@ export async function getDMs(userId: string): Promise<Channel[]> {
   });
 
   return dms as unknown as Channel[];
+}
+
+export async function updateChannelReadState(channelId: string, userId: string) {
+  // Get the last message in the channel
+  const lastMessage = await prisma.message.findFirst({
+    where: { channelId },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!lastMessage) return;
+
+  // Update the read state
+  await prisma.channelReadState.upsert({
+    where: {
+      channelId_userId: {
+        channelId,
+        userId,
+      },
+    },
+    create: {
+      channelId,
+      userId,
+      lastReadAt: lastMessage.createdAt,
+    },
+    update: {
+      lastReadAt: lastMessage.createdAt,
+    },
+  });
+
+  // Get new unread count
+  const unreadCount = await getUnreadCount(channelId, userId);
+  
+  // Emit read state event
+  emitReadStateEvent({ channelId, userId, unreadCount });
+}
+
+export async function getUnreadCount(channelId: string, userId: string) {
+  const [member, readState] = await Promise.all([
+    prisma.channelMember.findUnique({
+      where: {
+        channelId_userId: {
+          channelId,
+          userId,
+        },
+      },
+      select: {
+        isMuted: true,
+      },
+    }),
+    prisma.channelReadState.findUnique({
+      where: {
+        channelId_userId: {
+          channelId,
+          userId,
+        },
+      },
+    }),
+  ]);
+
+  if (!member || member.isMuted) {
+    return 0;
+  }
+
+  const unreadCount = await prisma.message.count({
+    where: {
+      channelId,
+      createdAt: {
+        gt: readState?.lastReadAt || new Date(0),
+      },
+      userId: {
+        not: userId, // Don't count user's own messages
+      },
+      deletedAt: null,
+    },
+  });
+
+  return unreadCount;
+}
+
+export async function toggleChannelMute(channelId: string, userId: string) {
+  const member = await prisma.channelMember.findUnique({
+    where: {
+      channelId_userId: {
+        channelId,
+        userId,
+      },
+    },
+    select: {
+      isMuted: true,
+    },
+  });
+
+  if (!member) {
+    throw new Error("Channel member not found");
+  }
+
+  return prisma.channelMember.update({
+    where: {
+      channelId_userId: {
+        channelId,
+        userId,
+      },
+    },
+    data: {
+      isMuted: !member.isMuted,
+    },
+  });
 } 

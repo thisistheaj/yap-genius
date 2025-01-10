@@ -13,6 +13,7 @@ import { MessageInput } from "~/components/chat/MessageInput";
 import { useUser } from "~/utils";
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
+  console.log("loader start");
   const userId = await requireUserId(request);
   invariant(params.id, "Channel ID not found");
   invariant(params.messageId, "Message ID not found");
@@ -38,7 +39,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   const title = channel.type === "DM" 
     ? otherMembers[0].user.displayName || otherMembers[0].user.email
     : `Group DM with ${otherMembers.map(m => m.user.displayName || m.user.email).join(", ")}`;
-
+  console.log("loader end");
   return json({ channel, parentMessage, replies, title });
 };
 

@@ -8,21 +8,21 @@ datasource db {
 }
 
 model User {
-  id              String          @id @default(cuid())
-  email           String          @unique
-  username        String?         @unique
+  id              String           @id @default(cuid())
+  email           String           @unique
+  username        String?          @unique
   displayName     String?
   password        Password?
   avatarUrl       String?
   status          String?
   lastSeen        DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  createdChannels Channel[]       @relation("ChannelCreator")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  createdChannels Channel[]        @relation("ChannelCreator")
   channels        ChannelMember[]
   messages        Message[]
-  files           File[]
   reactions       MessageReaction[]
+  readStates      ChannelReadState[]
 }
 
 model Password {
@@ -43,40 +43,52 @@ model Channel {
   creator      User            @relation("ChannelCreator", fields: [createdBy], references: [id])
   members      ChannelMember[]
   messages     Message[]
+  readStates   ChannelReadState[]
 }
 
 model ChannelMember {
-  channelId String
-  userId    String
-  lastRead  DateTime?
-  isMuted   Boolean   @default(false)
-  isFavorite Boolean  @default(false)
-  joinedAt  DateTime  @default(now())
-  leftAt    DateTime?
-  user      User      @relation(fields: [userId], references: [id])
-  channel   Channel   @relation(fields: [channelId], references: [id])
+  channelId  String
+  userId     String
+  role       String    @default("MEMBER")
+  isMuted    Boolean   @default(false)
+  isFavorite Boolean   @default(false)
+  joinedAt   DateTime  @default(now())
+  leftAt     DateTime?
+  user       User      @relation(fields: [userId], references: [id])
+  channel    Channel   @relation(fields: [channelId], references: [id])
 
   @@id([channelId, userId])
 }
 
 model Message {
-  id         String    @id @default(cuid())
-  channelId  String
-  userId     String
-  content    String
-  messageType String    @default("message") // "message" or "system"
-  parentId   String?
-  editedAt   DateTime?
-  deletedAt  DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  systemData String?   // JSON string for system message data
-  parent     Message?  @relation("ThreadMessages", fields: [parentId], references: [id])
-  replies    Message[] @relation("ThreadMessages")
-  user       User      @relation(fields: [userId], references: [id])
-  channel    Channel   @relation(fields: [channelId], references: [id])
-  files      File[]
-  reactions  MessageReaction[]
+  id          String           @id @default(cuid())
+  channelId   String
+  userId      String
+  content     String
+  parentId    String?
+  messageType String?
+  systemData  String?
+  editedAt    DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  parent      Message?         @relation("ThreadMessages", fields: [parentId], references: [id])
+  replies     Message[]        @relation("ThreadMessages")
+  user        User             @relation(fields: [userId], references: [id])
+  channel     Channel          @relation(fields: [channelId], references: [id])
+  files       File[]
+  reactions   MessageReaction[]
+}
+
+model File {
+  id        String   @id @default(cuid())
+  messageId String
+  name      String
+  url       String
+  size      Int
+  mimeType  String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id])
 }
 
 model MessageReaction {
@@ -85,23 +97,19 @@ model MessageReaction {
   userId    String
   emoji     String
   createdAt DateTime @default(now())
-  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   Message  @relation(fields: [messageId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@unique([messageId, userId, emoji])
-  @@index([messageId])
 }
 
-model File {
-  id        String   @id @default(cuid())
-  name      String   // Original filename
-  url       String   // Public URL (/uploads/{id}-{name})
-  size      Int
-  mimeType  String
-  purpose   String?  // e.g., "profile_picture", "message_attachment", etc.
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  messageId String?
-  message   Message? @relation(fields: [messageId], references: [id])
-  createdAt DateTime @default(now())
+model ChannelReadState {
+  channelId  String
+  userId     String
+  lastReadAt DateTime
+  channel    Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([channelId, userId])
+  @@index([userId])
 }

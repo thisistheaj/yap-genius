@@ -5,6 +5,7 @@ import { Smile } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "~/components/ui/hover-card";
 import { cn } from "~/lib/utils";
 import Picker from "@emoji-mart/react";
+import { useState, useEffect } from "react";
 
 interface User {
   id: string;
@@ -28,6 +29,13 @@ interface MessageReactionsProps {
 
 export function MessageReactions({ messageId, channelName, reactions, currentUserId }: MessageReactionsProps) {
   const fetcher = useFetcher();
+  const [emojiData, setEmojiData] = useState<any>(null);
+
+  useEffect(() => {
+    fetch('https://cdn.jsdelivr.net/npm/@emoji-mart/data')
+      .then(response => response.json())
+      .then(data => setEmojiData(data));
+  }, []);
 
   const handleEmojiSelect = (emoji: string) => {
     const hasReacted = reactions.some(
@@ -88,17 +96,15 @@ export function MessageReactions({ messageId, channelName, reactions, currentUse
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-fit p-0" align="end">
-          <Picker 
-            data={async () => {
-              const response = await fetch(
-                'https://cdn.jsdelivr.net/npm/@emoji-mart/data'
-              )
-              return response.json()
-            }}
-            onEmojiSelect={(emoji: any) => handleEmojiSelect(emoji.native)}
-            theme="light"
-            perLine={8}
-          />
+          {emojiData && (
+            <Picker 
+              data={emojiData}
+              onEmojiSelect={(emoji: any) => handleEmojiSelect(emoji.native)}
+              theme="light"
+              perLine={8}
+              set="native"
+            />
+          )}
         </PopoverContent>
       </Popover>
     </div>

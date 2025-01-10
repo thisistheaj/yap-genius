@@ -1,126 +1,80 @@
-import { json, type LoaderFunctionArgs, type ActionFunctionArgs, redirect } from "@remix-run/node";
-import { Outlet, useLoaderData, useRevalidator } from "@remix-run/react";
-import { Sidebar } from "~/components/layout/sidebar";
-import { ProfileSetupModal } from "~/components/profile-setup-modal";
-import { requireUser } from "~/session.server";
+import { json, LoaderFunctionArgs } from "@remix-run/node";
+import { Outlet, useLoaderData } from "@remix-run/react";
+import { requireUserId } from "~/session.server";
 import { getChannels, getPublicChannels, getDMs } from "~/models/channel.server";
-import type { Channel } from "~/models/channel.server";
-import { updateUser } from "~/models/user.server";
-import { useEffect, useCallback } from "react";
-
-export async function action({ request }: ActionFunctionArgs) {
-  const user = await requireUser(request);
-  const formData = await request.formData();
-  
-  const displayName = formData.get("displayName") as string;
-  const avatarUrl = formData.get("avatarUrl") as string;
-
-  if (!displayName || !avatarUrl) {
-    return json(
-      { error: "Display name and profile picture are required" },
-      { status: 400 }
-    );
-  }
-
-  await updateUser(user.id, {
-    displayName,
-    avatarUrl,
-  });
-
-  return redirect("/app");
-}
+import { getUnreadCount } from "~/models/channel.server";
+import { Sidebar } from "~/components/layout/sidebar";
+import type { Channel, SerializedChannelWithUnread, ChannelWithUnread } from "~/models/channel.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const user = await requireUser(request);
-  const needsProfileSetup = !user.displayName || !user.avatarUrl;
-  
+  const userId = await requireUserId(request);
   const [channels, publicChannels, dms] = await Promise.all([
-    getChannels(user.id),
-    getPublicChannels(user.id),
-    getDMs(user.id)
+    getChannels(userId),
+    getPublicChannels(userId),
+    getDMs(userId),
+  ]);
+
+  // Get unread counts for all channels and DMs
+  const [channelsWithUnread, dmsWithUnread] = await Promise.all([
+    Promise.all(
+      channels.map(async (channel) => ({
+        ...channel,
+        unreadCount: await getUnreadCount(channel.id, userId),
+      }))
+    ),
+    Promise.all(
+      dms.map(async (dm) => ({
+        ...dm,
+        unreadCount: await getUnreadCount(dm.id, userId),
+      }))
+    ),
   ]);
 
   return json({
-    user,
-    needsProfileSetup,
-    channels,
+    channels: channelsWithUnread,
     publicChannels,
-    dms,
+    dms: dmsWithUnread,
   });
 }
 
-type SerializedChannel = Omit<Channel, 'createdAt' | 'lastActivity'> & {
-  createdAt: string;
-  lastActivity: string;
-};
-
 export default function AppLayout() {
-  const { user, needsProfileSetup, channels, publicChannels, dms } = useLoaderData<typeof loader>();
-  const revalidator = useRevalidator();
-
-  // Debounced revalidation to prevent too many refreshes
-  const debouncedRevalidate = useCallback(() => {
-    let timeout: NodeJS.Timeout;
-    return () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        revalidator.revalidate();
-      }, 1000); // Wait 1 second before revalidating
-    };
-  }, [revalidator]);
-
-  useEffect(() => {
-    // Set up presence ping interval - every 2 minutes instead of 30 seconds
-    const pingInterval = setInterval(() => {
-      fetch("/presence/ping");
-    }, 120000);
-
-    // Connect to presence events
-    const presenceSource = new EventSource("/presence/subscribe");
-    presenceSource.addEventListener("presence", (event) => {
-      // Only revalidate if the presence event affects our channels/DMs
-      const data = JSON.parse(event.data);
-      const isRelevant = [...channels, ...publicChannels, ...dms].some(
-        channel => channel.members?.some(member => member.userId === data.userId)
-      );
-      if (isRelevant) {
-        debouncedRevalidate();
-      }
-    });
-
-    // Initial presence ping
-    fetch("/presence/ping");
-
-    // Cleanup
-    return () => {
-      clearInterval(pingInterval);
-      presenceSource.close();
-    };
-  }, [channels, publicChannels, dms, debouncedRevalidate]);
+  const data = useLoaderData<typeof loader>();
 
   // Transform the serialized dates back to Date objects
-  const transformDates = (channel: SerializedChannel): Channel => ({
+  const transformDates = (channel: SerializedChannelWithUnread): ChannelWithUnread => ({
     ...channel,
     createdAt: new Date(channel.createdAt),
     lastActivity: new Date(channel.lastActivity),
+    members: channel.members.map(member => ({
+      ...member,
+      user: {
+        ...member.user,
+        lastSeen: member.user.lastSeen ? new Date(member.user.lastSeen) : null,
+        createdAt: new Date(member.user.createdAt),
+        updatedAt: new Date(member.user.updatedAt),
+      },
+    })),
+    readStates: channel.readStates?.map(readState => ({
+      ...readState,
+      lastReadAt: new Date(readState.lastReadAt),
+    })),
   });
 
-  const transformedChannels = channels.map(transformDates);
-  const transformedPublicChannels = publicChannels.map(transformDates);
-  const transformedDms = dms.map(transformDates);
+  const channels = data.channels.map(channel => transformDates(channel as SerializedChannelWithUnread));
+  const publicChannels = data.publicChannels.map(channel => transformDates(channel as SerializedChannelWithUnread));
+  const dms = data.dms.map(channel => transformDates(channel as SerializedChannelWithUnread));
 
   return (
-    <div className="flex h-screen">
-      <Sidebar 
-        className="w-64 flex-shrink-0" 
-        channels={transformedChannels}
-        publicChannels={transformedPublicChannels}
-        dms={transformedDms}
+    <div className="grid lg:grid-cols-[250px_1fr]">
+      <Sidebar
+        channels={channels}
+        publicChannels={publicChannels}
+        dms={dms}
+        className="hidden lg:block"
       />
-      <main className="flex-1 overflow-auto">
+      <main className="flex h-screen flex-col">
         <Outlet />
       </main>
-      <ProfileSetupModal open={needsProfileSetup} />
     </div>
   );
 }
