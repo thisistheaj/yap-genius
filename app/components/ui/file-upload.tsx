@@ -66,12 +66,10 @@ export function FileUpload({
       return;
     }
 
-    setSelectedFile(file);
+    uploadSelectedFile(file);
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) return;
-
+  const uploadSelectedFile = async (selectedFile: File) => {
     const formData = new FormData();
     formData.append("file", selectedFile);
     if (purpose) {
@@ -116,14 +114,27 @@ export function FileUpload({
     }
   };
 
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+    console.log("handleUpload");
+    await uploadSelectedFile(selectedFile);
+  };
+
+
   const isUploading = uploadProgress > 0 && uploadProgress < 100;
 
+  const handleSelectAndUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("handleSelectAndUpload");
+    await handleFileSelect(event);
+    await handleUpload();
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="">
       <input
         ref={fileInputRef}
         type="file"
-        onChange={handleFileSelect}
+        onChange={handleSelectAndUpload}
         className="hidden"
         accept={accept.join(",")}
       />

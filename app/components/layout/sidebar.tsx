@@ -205,7 +205,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                       <Link to={`/app/c/${channel.name}`}>
                         <span className="text-muted-foreground mr-2">#</span>
                         {channel.name}
-                        {channel.type === "PRIVATE" && (
+                        {channel.type.toUpperCase() === "PRIVATE" && (
                           <Lock className="inline-block ml-2 h-3 w-3 text-muted-foreground" />
                         )}
                       </Link>

@@ -99,9 +99,9 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   const content = formData.get("content");
   const fileIds = formData.getAll("fileIds[]") as string[];
 
-  if (typeof content !== "string" || content.length === 0) {
+  if (typeof content !== "string" || (content.length === 0 && fileIds.length === 0)) {
     return json(
-      { errors: { content: "Message cannot be empty" } },
+      { errors: { content: "Must provide either a message or a file" } },
       { status: 400 }
     );
   }
@@ -150,9 +150,11 @@ export default function ChannelPage() {
       <div className="border-b p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">#</span>
             <div>
-              <h2 className="text-lg font-semibold">{channel.name}</h2>
+              <h2 className="text-lg font-semibold">
+                <span className="text-muted-foreground">#&nbsp;</span>
+                {channel.name}
+              </h2>
               {channel.description && (
                 <p className="text-sm text-muted-foreground">
                   {channel.description}

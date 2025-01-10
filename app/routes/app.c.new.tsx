@@ -30,6 +30,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (!name || name.length < 2 || name.length > 32 || !/^[a-z0-9-]+$/.test(name)) {
     errors.name = "Invalid channel name.";
   }
+  
+  if (name == 'new' || name == 'join' || name == 'favorite') {
+    errors.name = "Invalid channel name.";
+  }
 
   if (description && description.length > 512) {
     errors.description = "Description is too long.";
