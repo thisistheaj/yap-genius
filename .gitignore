@@ -10,3 +10,4 @@ node_modules
 /prisma/data.db-journal
 /public/uploads
 /data/uploads
+data.db
