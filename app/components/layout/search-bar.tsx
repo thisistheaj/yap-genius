@@ -21,7 +21,7 @@ export function SearchBar() {
       <div className="relative">
         <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search messages..."
+          placeholder="Ask Yappy..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="pl-8"
