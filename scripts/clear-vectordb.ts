@@ -3,7 +3,7 @@ import Database from "better-sqlite3";
 import path from 'path';
 
 // Use the same database file as Prisma
-const db = new Database(path.join(process.env.DATABASE_URL?.replace('file:', '') || './prisma/dev.db'));
+const db = new Database(path.join('prisma', process.env.DATABASE_URL?.replace('file:', '') || './data.db'));
 sqliteVec.load(db);
 
 try {

@@ -221,3 +221,17 @@ so that I can ensure the integrity of the platform
 -[ ] optimize channel load time (important because it blocks all dropdown uis)
 -[ ] buggy search results
 
+## 15. RAG Chat Assistant (Yappy)
+
+- [ ] Add search bar component to DMs and channel views
+- [ ] Create permanent virtual user "Yappy" in DM list
+- [ ] Implement redirect to Yappy chat when search is submitted
+- [ ] Auto-send user's search query as a message in Yappy chat
+- [ ] Display Yappy's response using /search endpoint results as a message
+
+The RAG assistant should:
+- Appear as a regular DM conversation
+- Process search queries as natural chat messages
+- Provide context-aware responses from chat history
+- Support both simple and fusion search strategies
+

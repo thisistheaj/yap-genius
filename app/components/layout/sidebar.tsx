@@ -12,9 +12,10 @@ import { useState, useEffect } from "react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "~/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { StarIcon } from "~/components/icons/star-icon";
-import { Lock } from "lucide-react";
+import { Lock, Bot } from "lucide-react";
 import type { loader as presenceLoader } from "~/routes/presence.ping";
 import type { User } from "~/models/user.server";
+import { SearchBar } from "./search-bar";
 
 function formatLastSeen(date: Date): string {
   const now = new Date();
@@ -134,10 +135,43 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
 
   const isUnread = (channel: Channel) => {
     const member = channel.members.find(m => m.userId === user.id);
-    console.log(member);
     if (!member?.lastRead) return true;
     return new Date(channel.lastActivity).getTime() > new Date(member.lastRead).getTime();
   };
+
+  // Create virtual Yappy user
+  const yappyUser: User = {
+    id: "yappy",
+    email: "yappy@yapgenius.com",
+    displayName: "Yappy",
+    avatarUrl: null,
+    status: "Ready to help!",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  // Create virtual Yappy DM channel
+  const yappyDM: Channel = {
+    id: "yappy",
+    name: "yappy",
+    description: "Your AI chat assistant",
+    type: "DM",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastActivity: new Date(),
+    createdBy: "system",
+    members: [
+      {
+        userId: "yappy",
+        user: yappyUser,
+        isFavorite: false,
+        lastRead: new Date(),
+      }
+    ],
+  };
+
+  // Add Yappy to the beginning of DMs list
+  const allDMs = [yappyDM, ...sortedDMs];
 
   return (
     <div className={cn("flex h-full flex-col", className)}>
@@ -183,6 +217,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
               </Button>
             </div>
           </div>
+          <SearchBar />
           <Separator />
           <div className="px-3 py-2">
             <div className="flex items-center justify-between mb-2 px-4">
@@ -275,7 +310,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
               </Button>
             </div>
             <div className="space-y-1">
-              {sortedDMs?.map((dm) => {
+              {allDMs?.map((dm) => {
                 const isActive = dm.id === params.id;
                 const otherMembers = dm.members.filter(m => m.userId !== user.id);
                 const displayName = getDMDisplayName(dm);
@@ -286,6 +321,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                 const oneMinuteAgo = now - 60 * 1000;
                 const isOnline = lastSeenTime && lastSeenTime > oneMinuteAgo;
                 const hasUnread = !isActive && isUnread(dm);
+                const isYappy = dm.id === "yappy";
 
                 const button = (
                   <Button
@@ -299,14 +335,17 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                   >
                     <Link to={`/app/dm/${dm.id}`}>
                       <div className="flex items-center gap-2 min-w-0">
-                        {dm.type === "DM" && (
+                        {dm.type === "DM" && !isYappy && (
                           <div className={cn(
                             "h-2 w-2 flex-shrink-0 rounded-full",
                             isOnline ? "bg-green-500" : "bg-slate-500"
                           )} />
                         )}
+                        {isYappy && (
+                          <Bot className="h-4 w-4 text-blue-500" />
+                        )}
                         <span className="truncate">{displayName}</span>
-                        {presence?.status && (
+                        {presence?.status && !isYappy && (
                           <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
                             • {presence.status}
                           </span>
@@ -319,16 +358,18 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                   </Button>
                 );
 
-                return dm.type === "DM" && otherUser ? (
-                  <UserProfileView
-                    key={dm.id}
-                    user={otherUser as User}
-                    lastSeen={presence?.lastSeen}
-                    status={presence?.status}
-                  >
-                    {button}
-                  </UserProfileView>
-                ) : button;
+                return isYappy ? button : (
+                  dm.type === "DM" && otherUser ? (
+                    <UserProfileView
+                      key={dm.id}
+                      user={otherUser as User}
+                      lastSeen={presence?.lastSeen}
+                      status={presence?.status}
+                    >
+                      {button}
+                    </UserProfileView>
+                  ) : button
+                );
               })}
             </div>
           </div>
