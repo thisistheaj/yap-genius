@@ -42,7 +42,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
 
       // Create system message
-      console.log("Creating system message for leave...");
       const systemMessage = await tx.message.create({
         data: {
           messageType: "system",
@@ -59,11 +58,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
           user: true,
         },
       });
-      console.log("Created system message:", systemMessage);
     });
 
     // Emit system event for user leaving
-    console.log("Emitting system event...");
     emitSystemEvent({
       type: "leave",
       channelName,
@@ -73,7 +70,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
         displayName: user.displayName
       }
     });
-    console.log("System event emitted");
 
     return redirect("/app");
   } catch (error) {

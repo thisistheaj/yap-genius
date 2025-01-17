@@ -4,7 +4,7 @@ import { useLoaderData, useRevalidator, Form } from "@remix-run/react";
 import invariant from "tiny-invariant";
 import { useEffect } from "react";
 
-import { getChannelById } from "~/models/channel.server";
+import { getChannelById, updateLastRead } from "~/models/channel.server";
 import { createMessage, getChannelMessages, updateMessage, deleteMessage } from "~/models/message.server";
 import { requireUserId } from "~/session.server";
 import { MessageList } from "~/components/chat/MessageList";
@@ -13,6 +13,7 @@ import { Avatar } from "~/components/shared/Avatar";
 import { useUser } from "~/utils";
 import { Button } from "~/components/ui/button";
 import { MoreVertical } from "lucide-react";
+import { emitReadStateEvent } from "~/routes/readstate.subscribe";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +57,12 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 
   const messages = await getChannelMessages(channel.id);
   const otherMembers = channel.members.filter(m => m.userId !== userId);
+  
+  // Mark DM as read
+  await updateLastRead(userId, channel.id);
+  
+  // Emit read state event
+  emitReadStateEvent({ userId, channelId: channel.id });
   
   return json({ channel, messages, otherMembers });
 };
@@ -114,9 +121,9 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   const content = formData.get("content");
   const fileIds = formData.getAll("fileIds[]") as string[];
 
-  if (typeof content !== "string" || content.length === 0) {
+  if (typeof content !== "string" || (content.length === 0 && fileIds.length === 0)) {
     return json(
-      { errors: { content: "Message cannot be empty" } },
+      { errors: { content: "Must provide either a message or a file" } },
       { status: 400 }
     );
   }

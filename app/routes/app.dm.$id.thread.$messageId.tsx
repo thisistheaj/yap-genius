@@ -56,9 +56,9 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   const content = formData.get("content");
   const fileIds = formData.getAll("fileIds[]") as string[];
 
-  if (typeof content !== "string" || content.length === 0) {
+  if (typeof content !== "string" || (content.length === 0 && fileIds.length === 0)) {
     return json(
-      { errors: { content: "Message cannot be empty" } },
+      { errors: { content: "Must provide either a message or a file" } },
       { status: 400 }
     );
   }

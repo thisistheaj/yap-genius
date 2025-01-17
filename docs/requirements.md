@@ -166,9 +166,9 @@ So that I can stay updated on conversations
 As a user
 I want to see unread indicators
 So that I can know what I have not read
-- [ ] Can see unread indicators
-- [ ] Can sort channels by activity
-- [ ] Can mute channels/DMs
+- [x] Can see unread indicators
+- [x] Can sort channels by activity
+- [x] Can mute channels/DMs
 
 As a user
 I want to receive notifications
@@ -209,6 +209,29 @@ so that I can ensure the integrity of the platform
 
 ## 102. Fixes
 
-- [ ] fix the position of the '#' in channel name when there is a description set
--[ ] Invalid channel names are rejected ('new' etc)
+-[x] fix the position of the '#' in channel name when there is a description set
+-[x] Invalid channel names are rejected ('new' etc)
+-[x] lock icon on private channels
+-[x] send image without text
+-[x] send file without text
+-[X] SSE for Channels
+-[x] remove logs
+-[x] clickable users names in user search
+-[ ] fix error msgs
 -[ ] optimize channel load time (important because it blocks all dropdown uis)
+-[ ] buggy search results
+
+## 15. RAG Chat Assistant (Yappy)
+
+- [ ] Add search bar component to DMs and channel views
+- [ ] Create permanent virtual user "Yappy" in DM list
+- [ ] Implement redirect to Yappy chat when search is submitted
+- [ ] Auto-send user's search query as a message in Yappy chat
+- [ ] Display Yappy's response using /search endpoint results as a message
+
+The RAG assistant should:
+- Appear as a regular DM conversation
+- Process search queries as natural chat messages
+- Provide context-aware responses from chat history
+- Support both simple and fusion search strategies
+

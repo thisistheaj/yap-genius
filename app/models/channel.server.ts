@@ -39,7 +39,7 @@ export async function createChannel({
 export async function getChannels(userId: string): Promise<Channel[]> {
   const channels = await prisma.channel.findMany({
     where: {
-      type: { in: ["public", "private"] },
+      type: { in: ["public", "private "] },
       members: {
         some: {
           userId
@@ -196,7 +196,6 @@ export async function leaveChannel(userId: string, channelName: string): Promise
 }
 
 export async function searchUsers(query: string, excludeUserIds: string[] = []): Promise<User[]> {
-  console.log("Search params:", { query, excludeUserIds }); // Debug log
   const searchQuery = query.toLowerCase();
   const users = await prisma.user.findMany({
     where: {
@@ -214,7 +213,6 @@ export async function searchUsers(query: string, excludeUserIds: string[] = []):
     },
     take: 5,
   });
-  console.log("Found users:", users); // Debug log
   return users as unknown as User[];
 }
 
@@ -381,4 +379,18 @@ export async function getDMs(userId: string): Promise<Channel[]> {
   });
 
   return dms as unknown as Channel[];
+}
+
+export async function updateLastRead(userId: string, channelId: string): Promise<void> {
+  await prisma.channelMember.update({
+    where: {
+      channelId_userId: {
+        channelId,
+        userId,
+      },
+    },
+    data: {
+      lastRead: new Date(),
+    },
+  });
 } 

@@ -4,7 +4,7 @@ import { Link, Form, isRouteErrorResponse, useLoaderData, useRouteError, useReva
 import invariant from "tiny-invariant";
 import { useEffect } from "react";
 
-import { getChannel } from "~/models/channel.server";
+import { getChannel, updateLastRead } from "~/models/channel.server";
 import { createMessage, getChannelMessages, updateMessage, deleteMessage } from "~/models/message.server";
 import { requireUserId } from "~/session.server";
 import { Avatar } from "~/components/shared/Avatar";
@@ -16,6 +16,7 @@ import type { Channel, Message } from "~/types";
 import { MessageList } from "~/components/chat/MessageList";
 import { MessageInput } from "~/components/chat/MessageInput";
 import { MoreVertical } from "lucide-react";
+import { emitReadStateEvent } from "~/routes/readstate.subscribe";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,8 +40,13 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   }
 
   const messages = await getChannelMessages(channel.id);
-  console.log("Loaded messages:", messages);
   const isOwner = channel.createdBy === userId;
+  
+  // Mark channel as read
+  await updateLastRead(userId, channel.id);
+  
+  // Emit read state event
+  emitReadStateEvent({ userId, channelId: channel.id });
   
   return json<LoaderData>({ channel, messages, isOwner });
 };
@@ -99,9 +105,9 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   const content = formData.get("content");
   const fileIds = formData.getAll("fileIds[]") as string[];
 
-  if (typeof content !== "string" || content.length === 0) {
+  if (typeof content !== "string" || (content.length === 0 && fileIds.length === 0)) {
     return json(
-      { errors: { content: "Message cannot be empty" } },
+      { errors: { content: "Must provide either a message or a file" } },
       { status: 400 }
     );
   }
@@ -126,7 +132,7 @@ export default function ChannelPage() {
 
   useEffect(() => {
     // Connect to SSE endpoint for messages
-    const messageSource = new EventSource(`/app/c/${channel.name}/messages/subscribe`);
+    const messageSource = new EventSource(`/messages/subscribe?channelId=${channel.id}`);
     // Connect to SSE endpoint for system events
     const systemSource = new EventSource(`/app/c/${channel.name}/events`);
     
@@ -142,7 +148,7 @@ export default function ChannelPage() {
       messageSource.close();
       systemSource.close();
     };
-  }, [channel.name, revalidator]);
+  }, [channel.id, channel.name, revalidator]);
 
   return (
     <div className="flex flex-col h-full">
@@ -150,9 +156,11 @@ export default function ChannelPage() {
       <div className="border-b p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">#</span>
             <div>
-              <h2 className="text-lg font-semibold">{channel.name}</h2>
+              <h2 className="text-lg font-semibold">
+                <span className="text-muted-foreground">#&nbsp;</span>
+                {channel.name}
+              </h2>
               {channel.description && (
                 <p className="text-sm text-muted-foreground">
                   {channel.description}

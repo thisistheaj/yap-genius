@@ -1,4 +1,4 @@
-import { Link, useFetcher } from "@remix-run/react";
+import { Link, useFetcher, useRevalidator } from "@remix-run/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
 import { cn } from "~/lib/utils";
@@ -12,8 +12,10 @@ import { useState, useEffect } from "react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "~/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { StarIcon } from "~/components/icons/star-icon";
-import { Lock } from "lucide-react";
+import { Lock, Bot } from "lucide-react";
 import type { loader as presenceLoader } from "~/routes/presence.ping";
+import type { User } from "~/models/user.server";
+import { SearchBar } from "./search-bar";
 
 function formatLastSeen(date: Date): string {
   const now = new Date();
@@ -42,6 +44,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
   const [open, setOpen] = useState(false);
   const fetcher = useFetcher();
   const presenceFetcher = useFetcher<typeof presenceLoader>();
+  const revalidator = useRevalidator();
   const [presenceData, setPresenceData] = useState<Record<string, { lastSeen: string; status?: string }>>({});
 
   // Poll for presence updates
@@ -68,6 +71,19 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
     };
   }, []); // Empty deps since we only want this to run once on mount
 
+  // Listen for read state events
+  useEffect(() => {
+    const eventSource = new EventSource("/readstate/subscribe");
+    
+    eventSource.addEventListener("readstate", () => {
+      revalidator.revalidate();
+    });
+
+    return () => {
+      eventSource.close();
+    };
+  }, [revalidator]);
+
   // Update presence data when we get new data
   useEffect(() => {
     if (presenceFetcher.data) {
@@ -83,13 +99,22 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
     }
   }, [presenceFetcher.data]);
 
-  // Sort channels with favorites first
+  // Sort channels by activity and favorites
   const sortedChannels = [...channels].sort((a, b) => {
     const aIsFavorite = a.members.some(m => m.userId === user.id && m.isFavorite);
     const bIsFavorite = b.members.some(m => m.userId === user.id && m.isFavorite);
+    
+    // First sort by favorites
     if (aIsFavorite && !bIsFavorite) return -1;
     if (!aIsFavorite && bIsFavorite) return 1;
-    return 0;
+    
+    // Then sort by activity
+    return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
+  });
+
+  // Sort DMs by activity
+  const sortedDMs = [...dms].sort((a, b) => {
+    return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
   });
 
   const handleToggleFavorite = (channelId: string) => {
@@ -107,6 +132,46 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
     }
     return `Group: ${otherMembers.map(m => m.user.displayName || m.user.email).join(", ")}`;
   };
+
+  const isUnread = (channel: Channel) => {
+    const member = channel.members.find(m => m.userId === user.id);
+    if (!member?.lastRead) return true;
+    return new Date(channel.lastActivity).getTime() > new Date(member.lastRead).getTime();
+  };
+
+  // Create virtual Yappy user
+  const yappyUser: User = {
+    id: "yappy",
+    email: "yappy@yapgenius.com",
+    displayName: "Yappy",
+    avatarUrl: null,
+    status: "Ready to help!",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  // Create virtual Yappy DM channel
+  const yappyDM: Channel = {
+    id: "yappy",
+    name: "yappy",
+    description: "Your AI chat assistant",
+    type: "DM",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastActivity: new Date(),
+    createdBy: "system",
+    members: [
+      {
+        userId: "yappy",
+        user: yappyUser,
+        isFavorite: false,
+        lastRead: new Date(),
+      }
+    ],
+  };
+
+  // Add Yappy to the beginning of DMs list
+  const allDMs = [yappyDM, ...sortedDMs];
 
   return (
     <div className={cn("flex h-full flex-col", className)}>
@@ -152,6 +217,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
               </Button>
             </div>
           </div>
+          <SearchBar />
           <Separator />
           <div className="px-3 py-2">
             <div className="flex items-center justify-between mb-2 px-4">
@@ -194,20 +260,32 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
               {sortedChannels?.map((channel) => {
                 const isActive = channel.name === params.name;
                 const isFavorite = channel.members.some(m => m.userId === user.id && m.isFavorite);
+                const hasUnread = !isActive && isUnread(channel);
                 
                 return (
                   <div key={channel.id} className="flex items-center">
                     <Button
                       asChild
                       variant={isActive ? "secondary" : "ghost"}
-                      className="w-full justify-start"
+                      className={cn(
+                        "w-full justify-start",
+                        hasUnread && "font-semibold"
+                      )}
                     >
                       <Link to={`/app/c/${channel.name}`}>
-                        <span className="text-muted-foreground mr-2">#</span>
-                        {channel.name}
-                        {channel.type === "PRIVATE" && (
-                          <Lock className="inline-block ml-2 h-3 w-3 text-muted-foreground" />
-                        )}
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            "text-muted-foreground",
+                            hasUnread && "text-foreground"
+                          )}>#</span>
+                          {channel.name}
+                          {channel.type.toUpperCase() === "PRIVATE" && (
+                            <Lock className="inline-block ml-2 h-3 w-3 text-muted-foreground" />
+                          )}
+                          {hasUnread && (
+                            <div className="ml-auto h-2 w-2 rounded-full bg-blue-500" />
+                          )}
+                        </div>
                       </Link>
                     </Button>
                     <Button
@@ -232,7 +310,7 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
               </Button>
             </div>
             <div className="space-y-1">
-              {dms?.map((dm) => {
+              {allDMs?.map((dm) => {
                 const isActive = dm.id === params.id;
                 const otherMembers = dm.members.filter(m => m.userId !== user.id);
                 const displayName = getDMDisplayName(dm);
@@ -242,43 +320,56 @@ export function Sidebar({ className, isCollapsed, channels, publicChannels, dms 
                 const now = Date.now();
                 const oneMinuteAgo = now - 60 * 1000;
                 const isOnline = lastSeenTime && lastSeenTime > oneMinuteAgo;
+                const hasUnread = !isActive && isUnread(dm);
+                const isYappy = dm.id === "yappy";
 
                 const button = (
                   <Button
                     key={dm.id}
                     asChild
                     variant={isActive ? "secondary" : "ghost"}
-                    className="w-full justify-start relative group"
+                    className={cn(
+                      "w-full justify-start relative group",
+                      hasUnread && "font-semibold"
+                    )}
                   >
                     <Link to={`/app/dm/${dm.id}`}>
                       <div className="flex items-center gap-2 min-w-0">
-                        {dm.type === "DM" && (
+                        {dm.type === "DM" && !isYappy && (
                           <div className={cn(
                             "h-2 w-2 flex-shrink-0 rounded-full",
-                            isOnline ? "bg-green-500" : "bg-muted"
+                            isOnline ? "bg-green-500" : "bg-slate-500"
                           )} />
                         )}
+                        {isYappy && (
+                          <Bot className="h-4 w-4 text-blue-500" />
+                        )}
                         <span className="truncate">{displayName}</span>
-                        {presence?.status && (
+                        {presence?.status && !isYappy && (
                           <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
                             • {presence.status}
                           </span>
+                        )}
+                        {hasUnread && (
+                          <div className="ml-auto h-2 w-2 rounded-full bg-blue-500" />
                         )}
                       </div>
                     </Link>
                   </Button>
                 );
 
-                return dm.type === "DM" && otherUser ? (
-                  <UserProfileView
-                    key={dm.id}
-                    user={otherUser}
-                    lastSeen={presence?.lastSeen}
-                    status={presence?.status}
-                  >
-                    {button}
-                  </UserProfileView>
-                ) : button;
+                return isYappy ? button : (
+                  dm.type === "DM" && otherUser ? (
+                    <UserProfileView
+                      key={dm.id}
+                      user={otherUser as User}
+                      lastSeen={presence?.lastSeen}
+                      status={presence?.status}
+                    >
+                      {button}
+                    </UserProfileView>
+                  ) : button
+                );
               })}
             </div>
           </div>

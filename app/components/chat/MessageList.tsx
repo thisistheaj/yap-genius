@@ -37,16 +37,11 @@ export function MessageList({ messages, currentUserId, hideThreads = false, chan
     }
   }, [editFetcher.state, editFetcher.data]);
 
-  console.log("Rendering messages:", messages);
-
   return (
     <div className="flex flex-col gap-4">
       {messages.map((message) => {
-        console.log("Processing message:", message);
         if (message.messageType === "system" && message.systemData) {
-          console.log("Found system message:", message);
           const systemData = JSON.parse(message.systemData);
-          console.log("Parsed system data:", systemData);
           return (
             <SystemMessage
               key={message.id}
@@ -71,7 +66,7 @@ export function MessageList({ messages, currentUserId, hideThreads = false, chan
                   {message.user.displayName || message.user.email}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {formatLastSeen(message.createdAt)}
+                  {formatLastSeen(message.createdAt as Date)}
                 </span>
                 {message.editedAt && (
                   <span className="text-xs text-muted-foreground">(edited)</span>
@@ -191,7 +186,7 @@ export function MessageList({ messages, currentUserId, hideThreads = false, chan
                             const lastReply = message.replies[message.replies.length - 1];
                             return lastReply && (
                               <span className="text-xs">
-                                Latest reply {formatLastSeen(lastReply.createdAt)} by {' '}
+                                Latest reply {formatLastSeen(lastReply.createdAt as Date)} by {' '}
                                 {lastReply.user.displayName || lastReply.user.email}
                               </span>
                             );
