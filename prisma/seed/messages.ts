@@ -8,6 +8,7 @@ interface MessageRow {
   channel: string;
   sender: string;
   content: string;
+  attachment?: string;
 }
 
 export function readMessages(): MessageRow[] {
@@ -19,7 +20,7 @@ export function readMessages(): MessageRow[] {
     .slice(1) // Remove header
     .filter(line => line.trim())
     .map(line => {
-      const [channel, sender, content] = line.split("\t");
-      return { channel, sender, content };
+      const [channel, sender, content, attachment] = line.split("\t");
+      return { channel, sender, content, attachment };
     });
 } 

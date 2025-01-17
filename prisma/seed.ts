@@ -1,6 +1,11 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { readMessages } from "./seed/messages";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const prisma = new PrismaClient();
 
@@ -12,7 +17,7 @@ const users = [
     username: "sarah",
     displayName: "Sarah Chen",
     role: "CEO",
-    avatarUrl: "/data/uploads/sarah.png"
+    avatarUrl: process.env.NODE_ENV === 'production' ? "/data/uploads/sarah.png" : "/uploads/sarah.png"
   },
   {
     email: "mike@microsaas.io",
@@ -20,7 +25,7 @@ const users = [
     username: "mike",
     displayName: "Mike Rodriguez",
     role: "Head of Engineering",
-    avatarUrl: "/data/uploads/mike.png"
+    avatarUrl: process.env.NODE_ENV === 'production' ? "/data/uploads/mike.png" : "/uploads/mike.png"
   },
   {
     email: "alex@microsaas.io",
@@ -28,7 +33,7 @@ const users = [
     username: "alex",
     displayName: "Alex Kumar",
     role: "Senior Engineer",
-    avatarUrl: "/data/uploads/alex.png"
+    avatarUrl: process.env.NODE_ENV === 'production' ? "/data/uploads/alex.png" : "/uploads/alex.png"
   },
   {
     email: "jamie@microsaas.io",
@@ -36,7 +41,7 @@ const users = [
     username: "jamie",
     displayName: "Jamie Thompson",
     role: "Engineer",
-    avatarUrl: "/data/uploads/jamie.png"
+    avatarUrl: process.env.NODE_ENV === 'production' ? "/data/uploads/jamie.png" : "/uploads/jamie.png"
   },
   {
     email: "pat@microsaas.io",
@@ -44,7 +49,7 @@ const users = [
     username: "pat",
     displayName: "Pat Morrison",
     role: "Engineer",
-    avatarUrl: "/data/uploads/pat.png"
+    avatarUrl: process.env.NODE_ENV === 'production' ? "/data/uploads/pat.png" : "/uploads/pat.png"
   }
 ];
 
@@ -56,6 +61,43 @@ const channels = [
   { name: "leadership", type: "PRIVATE", description: "Leadership team discussions" },
   { name: "eng-leadership", type: "PRIVATE", description: "Engineering leadership discussions" }
 ];
+
+async function ensureDataDirectory() {
+  // In development, use a local path
+  const isDev = process.env.NODE_ENV !== 'production';
+  const dataDir = isDev ? path.join(process.cwd(), 'public/uploads') : '/data/uploads';
+  
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  return dataDir;
+}
+
+async function copySeedFiles() {
+  const dataDir = await ensureDataDirectory();
+  const seedFilesDir = path.join(__dirname, "seed/files");
+  
+  // Copy all files from seed directory to data directory
+  const files = fs.readdirSync(seedFilesDir);
+  for (const file of files) {
+    const sourcePath = path.join(seedFilesDir, file);
+    const targetPath = path.join(dataDir, file);
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(path.dirname(targetPath))) {
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    }
+    
+    // Copy file if it doesn't exist or if source is newer
+    if (!fs.existsSync(targetPath) || 
+        fs.statSync(sourcePath).mtime > fs.statSync(targetPath).mtime) {
+      fs.copyFileSync(sourcePath, targetPath);
+      console.log(`Copied ${file} to ${targetPath}`);
+    }
+  }
+  
+  console.log("✅ Copied seed files to data directory");
+}
 
 async function createUsers() {
   const userRecords = [];
@@ -131,65 +173,43 @@ async function createChannels(userRecords: any[]) {
   return channelRecords;
 }
 
+async function createFileRecord(userId: string, filePath: string) {
+  const fileName = path.basename(filePath);
+  const isDev = process.env.NODE_ENV !== 'production';
+  const url = isDev ? `/uploads/${fileName}` : filePath;
+  
+  return prisma.file.create({
+    data: {
+      name: fileName,
+      url,
+      size: 1024 * 1024, // Placeholder size for PDF
+      mimeType: "application/pdf",
+      userId,
+      purpose: "message_attachment"
+    }
+  });
+}
+
 async function createMessages(userRecords: any[], channelRecords: any[]) {
-  const [sarah, mike, alex, jamie, pat] = userRecords;
-  const userMap = new Map([
-    ['sarah', sarah],
-    ['mike', mike],
-    ['alex', alex],
-    ['jamie', jamie],
-    ['pat', pat]
-  ]);
-
-  console.log("Creating messages...");
-  
-  // Read messages from TSV
   const messages = readMessages();
+  const userMap = new Map(userRecords.map(u => [u.username, u]));
+  const channelMap = new Map(channelRecords.map(c => [c.name, c]));
   
-  // Group messages by channel
-  const messagesByChannel = new Map<string, { userId: string, content: string }[]>();
+  // First, create any DM channels that don't exist yet
+  const dmMessages = messages.filter(msg => msg.channel.startsWith('dm:'));
+  const dmChannels = new Set(dmMessages.map(msg => msg.channel));
   
-  for (const msg of messages) {
-    const user = userMap.get(msg.sender);
-    if (!user) {
-      console.warn(`Unknown user ${msg.sender} in messages.tsv`);
-      continue;
-    }
-
-    if (!messagesByChannel.has(msg.channel)) {
-      messagesByChannel.set(msg.channel, []);
-    }
-    messagesByChannel.get(msg.channel)?.push({
-      userId: user.id,
-      content: msg.content
-    });
-  }
-
-  // Create messages for each channel
-  for (const [channelName, messages] of messagesByChannel) {
-    // For DMs, create or get the channel first
-    let channel;
-    if (channelName.startsWith('dm:')) {
+  for (const channelName of dmChannels) {
+    if (!channelMap.get(channelName)) {
       const [_, user1, user2] = channelName.split(':');
-      const dmUsers = [user1, user2].sort();
-      const dmChannelName = `${dmUsers[0]}:${dmUsers[1]}`;
+      const user1Record = userMap.get(user1);
+      const user2Record = userMap.get(user2);
       
-      // Create DM channel if it doesn't exist
-      channel = await prisma.channel.findFirst({
-        where: { name: dmChannelName }
-      });
-      
-      if (!channel) {
-        const user1Record = userMap.get(dmUsers[0]);
-        const user2Record = userMap.get(dmUsers[1]);
-        if (!user1Record || !user2Record) {
-          console.warn(`Could not find users for DM channel ${dmChannelName}`);
-          continue;
-        }
-
-        channel = await prisma.channel.create({
+      if (user1Record && user2Record) {
+        console.log(`Creating DM channel between ${user1} and ${user2}`);
+        const channel = await prisma.channel.create({
           data: {
-            name: dmChannelName,
+            name: channelName,
             type: "DM",
             description: "Direct Messages",
             createdBy: user1Record.id,
@@ -199,30 +219,66 @@ async function createMessages(userRecords: any[], channelRecords: any[]) {
                 { userId: user2Record.id }
               ]
             }
-          }
+          },
         });
+        channelMap.set(channelName, channel);
       }
-    } else {
-      // Get existing channel for public/private channels
-      channel = channelRecords.find(c => c.name === channelName);
     }
-
+  }
+  
+  // Group messages by channel
+  const messagesByChannel = new Map<string, { userId: string; content: string; attachment?: string; }[]>();
+  
+  for (const msg of messages) {
+    const user = userMap.get(msg.sender);
+    if (!user) {
+      console.warn(`Could not find user ${msg.sender}`);
+      continue;
+    }
+    
+    const channelMessages = messagesByChannel.get(msg.channel) || [];
+    channelMessages.push({
+      userId: user.id,
+      content: msg.content,
+      attachment: msg.attachment
+    });
+    messagesByChannel.set(msg.channel, channelMessages);
+  }
+  
+  // Create messages for each channel
+  for (const [channelName, messages] of messagesByChannel.entries()) {
+    const channel = channelMap.get(channelName);
     if (!channel) {
       console.warn(`Could not find channel ${channelName}`);
       continue;
     }
-
+    
     // Create messages
     console.log(`Creating messages for channel: ${channelName}`);
     for (const msg of messages) {
+      let fileIds: string[] = [];
+      
+      // Create file record if there's an attachment
+      if (msg.attachment) {
+        try {
+          const file = await createFileRecord(msg.userId, msg.attachment);
+          fileIds.push(file.id);
+        } catch (error) {
+          console.warn(`Failed to create file record for ${msg.attachment}:`, error);
+        }
+      }
+      
       const message = await prisma.message.create({
         data: {
           channelId: channel.id,
           userId: msg.userId,
           content: msg.content,
+          files: fileIds.length > 0 ? {
+            connect: fileIds.map(id => ({ id }))
+          } : undefined
         },
       });
-
+      
       // Add some reactions randomly
       if (Math.random() > 0.7) {
         await prisma.messageReaction.create({
@@ -235,46 +291,12 @@ async function createMessages(userRecords: any[], channelRecords: any[]) {
       }
     }
   }
-
-  // Create default DMs between all users (if not already created by messages)
-  console.log("Creating remaining DM channels...");
-  for (let i = 0; i < userRecords.length; i++) {
-    for (let j = i + 1; j < userRecords.length; j++) {
-      const user1 = userRecords[i];
-      const user2 = userRecords[j];
-      
-      // Create deterministic channel name
-      const dmUsers = [user1.username, user2.username].sort();
-      const channelName = `${dmUsers[0]}:${dmUsers[1]}`;
-      
-      // Check if channel already exists
-      const existingChannel = await prisma.channel.findFirst({
-        where: { name: channelName }
-      });
-      
-      if (!existingChannel) {
-        console.log(`Creating DM channel between ${user1.username} and ${user2.username}`);
-        await prisma.channel.create({
-          data: {
-            name: channelName,
-            type: "DM",
-            description: "Direct Messages",
-            createdBy: user1.id,
-            members: {
-              create: [
-                { userId: user1.id },
-                { userId: user2.id }
-              ]
-            }
-          },
-        });
-      }
-    }
-  }
 }
 
 async function seed() {
   console.log("🌱 Starting seed...");
+  
+  await copySeedFiles();
   
   const userRecords = await createUsers();
   console.log("✅ Created users");
