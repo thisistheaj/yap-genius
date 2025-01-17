@@ -34,6 +34,17 @@ describe('Vec0SDK', () => {
     expect(true).toBe(true);
   });
 
+  test('creates a table with partitions', () => {
+    vec0.createTable({
+      name: 'test_vectors',
+      dimensions: 3,
+      partitionBy: true
+    });
+
+    // No error means success
+    expect(true).toBe(true);
+  });
+
   test('upserts and searches vectors', () => {
     vec0.createTable({
       name: 'test_vectors',
@@ -59,6 +70,46 @@ describe('Vec0SDK', () => {
     expect(results[0].distance).toBeCloseTo(0, 5);
   });
 
+  test('upserts and searches vectors with partitions', () => {
+    vec0.createTable({
+      name: 'test_vectors',
+      dimensions: 3,
+      partitionBy: true
+    });
+
+    const vectors = [
+      { id: 'vec1', embedding: [1, 0, 0], partition: 'A' },
+      { id: 'vec2', embedding: [0, 1, 0], partition: 'A' },
+      { id: 'vec3', embedding: [0, 0, 1], partition: 'B' },
+      { id: 'vec4', embedding: [1, 0, 0], partition: 'B' }
+    ];
+
+    // Insert vectors
+    vectors.forEach(v => {
+      vec0.upsert('test_vectors', v.id, v.embedding, { partition: v.partition });
+    });
+
+    // Search in partition A
+    const resultsA = vec0.search('test_vectors', [1, 0, 0], { 
+      limit: 2,
+      partition: 'A'
+    });
+
+    expect(resultsA).toHaveLength(2);
+    expect(resultsA[0].id).toBe('vec1');
+    expect(resultsA[1].id).toBe('vec2');
+
+    // Search in partition B
+    const resultsB = vec0.search('test_vectors', [1, 0, 0], {
+      limit: 2,
+      partition: 'B'
+    });
+
+    expect(resultsB).toHaveLength(2);
+    expect(resultsB[0].id).toBe('vec4');
+    expect(resultsB[1].id).toBe('vec3');
+  });
+
   test('batch upserts vectors', () => {
     vec0.createTable({
       name: 'test_vectors',
@@ -78,6 +129,41 @@ describe('Vec0SDK', () => {
     expect(result.errors).toHaveLength(0);
   });
 
+  test('batch upserts vectors with partitions', () => {
+    vec0.createTable({
+      name: 'test_vectors',
+      dimensions: 3,
+      partitionBy: true
+    });
+
+    const vectors = [
+      { id: 'vec1', embedding: [1, 0, 0], partition: 'A' },
+      { id: 'vec2', embedding: [0, 1, 0], partition: 'A' },
+      { id: 'vec3', embedding: [0, 0, 1], partition: 'B' }
+    ];
+
+    const result = vec0.batchUpsert('test_vectors', vectors);
+
+    expect(result.successful).toBe(3);
+    expect(result.failed).toBe(0);
+    expect(result.errors).toHaveLength(0);
+
+    // Verify partitions by searching
+    const resultsA = vec0.search('test_vectors', [1, 0, 0], { 
+      limit: 2,
+      partition: 'A'
+    });
+    expect(resultsA).toHaveLength(2);
+    expect(resultsA[0].id).toBe('vec1');
+
+    const resultsB = vec0.search('test_vectors', [1, 0, 0], {
+      limit: 2,
+      partition: 'B'
+    });
+    expect(resultsB).toHaveLength(1);
+    expect(resultsB[0].id).toBe('vec3');
+  });
+
   test('records and retrieves metrics', () => {
     vec0.createTable({
       name: 'test_vectors',
@@ -95,5 +181,46 @@ describe('Vec0SDK', () => {
 
     vec0.clearMetrics();
     expect(vec0.getMetrics()).toHaveLength(0);
+  });
+
+  test('searches vectors across multiple partitions', () => {
+    vec0.createTable({
+      name: 'test_vectors',
+      dimensions: 3,
+      partitionBy: true
+    });
+
+    const vectors = [
+      { id: 'vec1', embedding: [1, 0, 0], partition: 'A' },
+      { id: 'vec2', embedding: [0, 1, 0], partition: 'A' },
+      { id: 'vec3', embedding: [0, 0, 1], partition: 'B' },
+      { id: 'vec4', embedding: [1, 0, 0], partition: 'B' },
+      { id: 'vec5', embedding: [1, 0, 0], partition: 'C' }
+    ];
+
+    // Insert vectors
+    vectors.forEach(v => {
+      vec0.upsert('test_vectors', v.id, v.embedding, { partition: v.partition });
+    });
+
+    // Search across partitions A and B
+    const resultsAB = vec0.search('test_vectors', [1, 0, 0], { 
+      limit: 3,
+      partition: ['A', 'B']
+    });
+
+    expect(resultsAB).toHaveLength(3);
+    // Should find vec1 and vec4 first (exact matches)
+    expect(resultsAB.slice(0, 2).map(r => r.id).sort()).toEqual(['vec1', 'vec4']);
+
+    // Search across all three partitions
+    const resultsABC = vec0.search('test_vectors', [1, 0, 0], {
+      limit: 5,
+      partition: ['A', 'B', 'C']
+    });
+
+    expect(resultsABC).toHaveLength(5);
+    // Should find all three exact matches first
+    expect(resultsABC.slice(0, 3).map(r => r.id).sort()).toEqual(['vec1', 'vec4', 'vec5']);
   });
 }); 

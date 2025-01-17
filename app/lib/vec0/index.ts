@@ -27,12 +27,18 @@ export class Vec0SDK {
   createTable(schema: Vec0TableSchema): void {
     const start = Date.now();
     try {
+      // Build column definitions
+      const columns = [
+        'id TEXT PRIMARY KEY',
+        schema.partitionBy ? 'partition TEXT' : null,
+        `embedding FLOAT[${schema.dimensions}]`
+      ].filter(Boolean);
+
       // Create table SQL
       const sql = `
         CREATE VIRTUAL TABLE IF NOT EXISTS ${schema.name} 
         USING vec0(
-          id TEXT PRIMARY KEY,
-          embedding FLOAT[${schema.dimensions}]
+          ${columns.join(',\n')}
         );
       `;
 
@@ -56,23 +62,32 @@ export class Vec0SDK {
   }
 
   // Insert or update a vector
-  upsert<T extends Record<string, any>>(
+  upsert(
     tableName: string,
     id: string | number,
     embedding: number[],
-    metadata?: T
+    options: {
+      partition?: string;
+    } = {}
   ): void {
     const start = Date.now();
     try {
       const vec = Buffer.from(new Float32Array(embedding).buffer);
-      
+      const { partition } = options;
+
       const sql = `
         INSERT OR REPLACE INTO ${tableName}
-        (id, embedding)
-        VALUES (?, ?)
+        (id, embedding${partition ? ', partition' : ''})
+        VALUES (?, ?${partition ? ', ?' : ''})
       `;
 
-      this.db.prepare(sql).run(id, vec);
+      const values = [id, vec];
+      if (partition) values.push(partition);
+
+      console.log('SQL:', sql);
+      console.log('Values:', values);
+
+      this.db.prepare(sql).run(...values);
       
       this.recordMetric({
         tableName,
@@ -102,20 +117,43 @@ export class Vec0SDK {
     try {
       const vec = Buffer.from(new Float32Array(embedding).buffer);
       const limit = options.limit || 10;
-      
-      // Build search SQL with LIMIT
-      const sql = `
-        SELECT id, distance
-        FROM ${tableName}
-        WHERE embedding MATCH ?
-        ORDER BY distance ASC
-        LIMIT ?
-      `;
 
-      const results = this.db.prepare(sql).all(
-        vec,
-        limit
-      ) as Vec0SearchResult<T>[];
+      // Build search SQL with optional partition filter
+      let sql: string;
+      let params: any[];
+
+      if (!options.partition) {
+        sql = `
+          SELECT id, distance
+          FROM ${tableName}
+          WHERE embedding MATCH ?
+          ORDER BY distance ASC
+          LIMIT ?
+        `;
+        params = [vec, limit];
+      } else if (Array.isArray(options.partition)) {
+        sql = `
+          SELECT id, distance
+          FROM ${tableName}
+          WHERE embedding MATCH ?
+          AND partition IN (${options.partition.map(() => '?').join(',')})
+          ORDER BY distance ASC
+          LIMIT ?
+        `;
+        params = [vec, ...options.partition, limit];
+      } else {
+        sql = `
+          SELECT id, distance
+          FROM ${tableName}
+          WHERE embedding MATCH ?
+          AND partition = ?
+          ORDER BY distance ASC
+          LIMIT ?
+        `;
+        params = [vec, options.partition, limit];
+      }
+
+      const results = this.db.prepare(sql).all(...params) as Vec0SearchResult<T>[];
 
       this.recordMetric({
         tableName,
@@ -138,12 +176,12 @@ export class Vec0SDK {
   }
 
   // Batch insert/update vectors
-  batchUpsert<T extends Record<string, any>>(
+  batchUpsert(
     tableName: string,
     items: Array<{
       id: string | number;
       embedding: number[];
-      metadata?: T;
+      partition?: string;
     }>
   ): Vec0BatchResult {
     const start = Date.now();
@@ -158,7 +196,9 @@ export class Vec0SDK {
       const tx = this.db.transaction(() => {
         for (const item of items) {
           try {
-            this.upsert(tableName, item.id, item.embedding);
+            this.upsert(tableName, item.id, item.embedding, {
+              partition: item.partition
+            });
             result.successful++;
           } catch (error) {
             result.failed++;

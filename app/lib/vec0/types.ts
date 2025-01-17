@@ -8,32 +8,19 @@ export interface Vec0ConnectionOptions {
 export interface Vec0TableSchema {
   name: string;
   dimensions: number;
-  metadata?: Vec0MetadataField[];
-}
-
-// Metadata field definition
-export interface Vec0MetadataField {
-  name: string;
-  type: 'TEXT' | 'INTEGER' | 'REAL' | 'BLOB';
-  primaryKey?: boolean;
-  notNull?: boolean;
-  unique?: boolean;
+  partitionBy?: boolean;
 }
 
 // Search options
 export interface Vec0SearchOptions {
   limit?: number;
-  offset?: number;
-  filter?: string;
-  orderBy?: 'distance' | 'id' | string;
-  orderDir?: 'asc' | 'desc';
+  partition?: string | string[];
 }
 
 // Search result
 export interface Vec0SearchResult<T = any> {
-  id: string | number;
+  id: string;
   distance: number;
-  metadata?: T;
 }
 
 // Batch operation result
@@ -51,7 +38,7 @@ export interface Vec0Metrics {
   tableName: string;
   operation: string;
   duration: number;
-  timestamp: Date;
   success: boolean;
   error?: string;
+  timestamp: Date;
 } 
