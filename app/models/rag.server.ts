@@ -5,8 +5,13 @@ import { Configuration, OpenAIApi } from "openai";
 import path from 'path';
 import crypto from 'crypto';
 
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is required');
+}
+
 const prisma = new PrismaClient();
-const dbPath = path.join('prisma', process.env.DATABASE_URL?.replace('file:', '') || './data.db');
+const dbPath = process.env.DATABASE_URL.replace('file:', '');
+console.log(`Opening database at ${dbPath}`);
 const db = new Database(dbPath);
 sqliteVec.load(db);
 

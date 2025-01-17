@@ -4,7 +4,11 @@ import path from "path";
 import fs from "fs/promises";
 import { fileTypeFromBuffer } from "file-type";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public/uploads");
+if (!process.env.UPLOAD_DIR) {
+  throw new Error('UPLOAD_DIR is required');
+}
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR;
 
 // Ensure upload directory exists
 async function ensureUploadDir() {
@@ -41,7 +45,6 @@ export async function createFile({
 
   // Create unique filename
   const id = Math.random().toString(36).substring(2);
-  const ext = path.extname(name);
   const filename = `${id}-${name}`;
   const filePath = path.join(UPLOAD_DIR, filename);
 
@@ -54,7 +57,7 @@ export async function createFile({
       name,
       size,
       mimeType: fileType.mime,
-      url: `/uploads/${filename}`,
+      url: `/data/uploads/${filename}`,
       userId,
       purpose,
     },
