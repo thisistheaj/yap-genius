@@ -235,3 +235,59 @@ The RAG assistant should:
 - Provide context-aware responses from chat history
 - Support both simple and fusion search strategies
 
+## 16. SQLite Vec0 Text Primary Keys
+
+As a developer
+I want to use text-based primary keys in vec0 tables
+So that we can maintain direct message ID relationships
+
+-[x] Research implementation approaches from sqlite-vec issue #150
+-[x] Create proof of concept for text-based primary keys
+-[x] Update vector table schema to use message IDs directly
+-[x] Remove message ID hashing functionality
+-[x] Create migration script for existing vector data
+-[x] Update all vector queries to use text IDs
+-[ ] Add tests for new primary key implementation
+-[x] Update documentation with new approach
+-[x] Benchmark performance impact
+
+The implementation should:
+-[x] Maintain existing query performance
+-[x] Preserve all current functionality
+-[x] Handle UUID/CUID format message IDs
+-[x] Support backwards compatibility during migration
+
+## 17. Vec0 SDK Development
+
+As a developer
+I want a low-level SDK for vec0 operations
+So that we can build consistent vector implementations
+
+- [ ] Design SDK interface and types
+- [ ] Implement core table operations:
+  - [ ] Table creation with metadata columns
+  - [ ] Auxiliary field support
+  - [ ] Table partitioning
+  - [ ] Batch insertions
+- [ ] Add query capabilities:
+  - [ ] Partition-based filtering
+  - [ ] Metadata field filtering
+  - [ ] Similarity search options
+  - [ ] Result ranking methods
+- [ ] Create utility functions:
+  - [ ] Connection management
+  - [ ] Error handling
+  - [ ] Performance monitoring
+  - [ ] Batch operations
+- [ ] Add comprehensive tests
+- [ ] Write SDK documentation
+- [ ] Create usage examples
+
+The SDK should:
+- Be independent of higher-level implementations
+- Provide type safety for all operations
+- Handle SQLite connection lifecycle
+- Support development and production configs
+- Include performance benchmarking tools
+- Be extensible for RAG/Fusion/Agent implementations
+

@@ -24,8 +24,8 @@ async function main() {
       console.log(`Processing message ${message.id}`)
       console.log(message.content)
       
-      const hashedId = await storeEmbedding(message.id, message.content)
-      console.log(`Processed message ${message.id} -> ${hashedId}`)
+      await storeEmbedding(message.id, message.content)
+      console.log(`Processed message ${message.id}`)
     } catch (error) {
       console.error(`Error processing message ${message.id}:`, error)
     }

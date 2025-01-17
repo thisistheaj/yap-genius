@@ -2,8 +2,6 @@ import { PrismaClient } from '@prisma/client'
 import * as sqliteVec from "sqlite-vec";
 import Database from "better-sqlite3";
 import { Configuration, OpenAIApi } from "openai";
-import path from 'path';
-import crypto from 'crypto';
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is required');
@@ -15,7 +13,7 @@ console.log(`Opening database at ${dbPath}`);
 const db = new Database(dbPath);
 sqliteVec.load(db);
 
-const limit = 40;
+const limit = 5;
 
 // Initialize OpenAI client
 const openai = new OpenAIApi(
@@ -24,17 +22,11 @@ const openai = new OpenAIApi(
 
 // Initialize vector table if it doesn't exist
 db.exec(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS messages_vec USING vec0(
-    rowid INTEGER PRIMARY KEY,
+  CREATE VIRTUAL TABLE IF NOT EXISTS messages_vec USING vec0(
+    id TEXT,
     embedding FLOAT[1536]
-    );
+  );
 `);
-
-// Utility function to hash string IDs to integers
-function hashToInt(str: string) {
-  const hash = crypto.createHash('md5').update(str).digest();
-  return hash.readInt32LE(0);
-}
 
 // Get embedding for a text input
 export async function getEmbedding(text: string): Promise<number[]> {
@@ -53,22 +45,21 @@ export async function storeEmbedding(messageId: string, content: string) {
 
   const embedding = await getEmbedding(content);
   const vec = Buffer.from(new Float32Array(embedding).buffer);
-  const hashedId = hashToInt(messageId);
 
   db.prepare(`
-    INSERT OR REPLACE INTO messages_vec(rowid, embedding) 
+    INSERT OR REPLACE INTO messages_vec(id, embedding) 
     VALUES (?, ?)
   `).run(
-    BigInt(hashedId),
+    messageId,
     vec
   );
 
-  return hashedId;
+  return messageId;
 }
 
 // Define result type
 interface VectorSearchResult {
-  rowid: number;
+  id: string;
   distance: number;
 }
 
@@ -78,23 +69,30 @@ export async function searchSimilar(query: string, limit: number = 5) {
   const vec = Buffer.from(new Float32Array(embedding).buffer);
 
   const results = db.prepare(`
-    select rowid, distance
+    select id, distance
     from messages_vec 
     where embedding match ?
     order by distance asc
     limit ?
   `).all(vec, limit) as VectorSearchResult[];
+
   // Fetch full messages for results
-  const messages = await prisma.message.findMany();
-  const res =  results.map(result => {
-    const message = messages.find(m => BigInt(hashToInt(m.id)) === BigInt(result.rowid));
+  const messages = await prisma.message.findMany({
+    where: {
+      id: {
+        in: results.map(r => r.id)
+      }
+    }
+  });
+
+  return results.map(result => {
+    const message = messages.find(m => m.id === result.id);
     return {
       messageId: message?.id,
       content: message?.content,
       distance: result.distance
     };
   });
-  return res;
 }
 
 // Reciprocal Rank Fusion search
@@ -166,7 +164,7 @@ export async function answerWithContext(question: string, strategy: 'simple' | '
   }));
   const context = contextResults.map(r => r.content).filter(Boolean).join('\n\n');
   // Create prompt with context
-  const prompt = `Answer the following question using the provided context. If the context doesn't contain relevant information, say so.
+  const prompt = `Answer the following question using the provided context. If the context doesn't contain relevant information, say so, and explain the ambiguity without making up information.
 
 Context:
 ${context}
