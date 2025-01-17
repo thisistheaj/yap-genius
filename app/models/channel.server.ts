@@ -4,7 +4,7 @@ export type { Channel };
 
 export async function createChannel({ 
   name, 
-  type = "public",
+  type = "PUBLIC",
   description,
   createdBy 
 }: { 
@@ -39,7 +39,7 @@ export async function createChannel({
 export async function getChannels(userId: string): Promise<Channel[]> {
   const channels = await prisma.channel.findMany({
     where: {
-      type: { in: ["public", "private "] },
+      type: { in: ["PUBLIC", "PRIVATE"] },
       members: {
         some: {
           userId
@@ -71,7 +71,7 @@ export async function getChannels(userId: string): Promise<Channel[]> {
 export async function getPublicChannels(userId: string): Promise<Channel[]> {
   const channels = await prisma.channel.findMany({
     where: {
-      type: "public",
+      type: "PUBLIC",
       members: {
         none: {
           userId
@@ -148,7 +148,7 @@ export async function ensureDefaultChannels(userId: string) {
 export async function joinChannel(userId: string, channelName: string): Promise<Channel> {
   const channel = await getChannel(channelName);
   if (!channel) throw new Error("Channel not found");
-  if (channel.type !== "public") throw new Error("Cannot join private channel");
+  if (channel.type !== "PUBLIC") throw new Error("Cannot join private channel");
 
   const updatedChannel = await prisma.channel.update({
     where: { name: channelName },
