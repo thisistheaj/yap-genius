@@ -1,11 +1,14 @@
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useSearchParams, Form } from "@remix-run/react";
-import { useEffect, useRef } from "react";
+import { useLoaderData, useSearchParams, Form, useActionData } from "@remix-run/react";
+import { useEffect, useRef, useState } from "react";
 import { requireUserId } from "~/session.server";
 import { MessageList } from "~/components/chat/MessageList";
 import { MessageInput } from "~/components/chat/MessageInput";
 import { Bot } from "lucide-react";
 import type { Message } from "~/types";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 // Virtual Yappy user
 const YAPPY_USER = {
@@ -15,7 +18,7 @@ const YAPPY_USER = {
   avatarUrl: null,
 };
 
-function createMessage(content: string, userId: string, isUser = true): Message {
+function createMessage(content: string, user: { id: string, email: string, displayName: string | null, avatarUrl: string | null }, isUser = true): Message {
   const now = new Date().toISOString();
   return {
     id: `${isUser ? 'q' : 'a'}-${Date.now()}`,
@@ -25,12 +28,7 @@ function createMessage(content: string, userId: string, isUser = true): Message 
     editedAt: null,
     systemData: null,
     files: [],
-    user: isUser ? {
-      id: userId,
-      email: "",
-      displayName: null,
-      avatarUrl: null,
-    } : YAPPY_USER,
+    user: isUser ? user : YAPPY_USER,
     reactions: []
   };
 }
@@ -40,12 +38,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const searchQuery = url.searchParams.get("q");
 
-  // If there's a search query, we'll create a virtual message pair
+  // Get user data from the database
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, displayName: true, avatarUrl: true }
+  });
+
+  if (!user) throw new Error("User not found");
+
   const messages: Message[] = [];
   
   if (searchQuery) {
-    // Add user's question as a message
-    messages.push(createMessage(searchQuery, userId));
+    messages.push(createMessage(searchQuery, user));
 
     // Get answer from search endpoint
     const searchResponse = await fetch(`${url.origin}/api/search?q=${encodeURIComponent(searchQuery)}`, {
@@ -61,10 +65,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const { answer } = await searchResponse.json();
 
     // Add Yappy's response as a message
-    messages.push(createMessage(answer, "yappy", false));
+    messages.push(createMessage(answer, YAPPY_USER, false));
   }
 
-  return json({ messages });
+  return json({ messages, user });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -78,6 +82,14 @@ export async function action({ request }: ActionFunctionArgs) {
       { status: 400 }
     );
   }
+
+  // Get user data
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, displayName: true, avatarUrl: true }
+  });
+
+  if (!user) throw new Error("User not found");
 
   const url = new URL(request.url);
   // Get answer from search endpoint
@@ -95,22 +107,38 @@ export async function action({ request }: ActionFunctionArgs) {
 
   return json({ 
     messages: [
-      createMessage(content, userId),
-      createMessage(answer, "yappy", false)
+      createMessage(content, user),
+      createMessage(answer, YAPPY_USER, false)
     ] 
   });
 }
 
 export default function YappyDM() {
-  const { messages } = useLoaderData<typeof loader>();
+  const { messages: initialMessages, user } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const messageListRef = useRef<HTMLDivElement>(null);
+  const [messageHistory, setMessageHistory] = useState<Message[]>(initialMessages);
+
+  // Update message history when new messages come from action
+  useEffect(() => {
+    if (actionData?.messages) {
+      setMessageHistory(prevHistory => [...prevHistory, ...actionData.messages]);
+    }
+  }, [actionData]);
+
+  // Initial messages from loader (search params)
+  useEffect(() => {
+    if (initialMessages.length > 0) {
+      setMessageHistory(initialMessages);
+    }
+  }, [initialMessages]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
     if (messageListRef.current) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messageHistory]);
 
   return (
     <div className="flex flex-col h-full">
@@ -124,17 +152,17 @@ export default function YappyDM() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col-reverse" ref={messageListRef}>
         <MessageList
-          messages={messages}
-          currentUserId="user"
+          messages={messageHistory}
+          currentUserId={user.id}
           hideThreads
           channelName="yappy"
         />
       </div>
 
       {/* Message Input */}
-      <Form method="post">
+      <Form method="post" replace>
         <MessageInput placeholder="Ask Yappy anything..." />
       </Form>
     </div>

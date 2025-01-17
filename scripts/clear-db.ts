@@ -46,7 +46,8 @@ async function clearUploads() {
 async function main() {
   try {
     await clearDatabase();
-    await clearUploads();
+    // Claude: do NOT clear uploads; do NOT Uncomment the line below
+    // await clearUploads();
     console.log("🎉 All data cleared successfully!");
   } catch (error) {
     console.error("Error clearing data:", error);

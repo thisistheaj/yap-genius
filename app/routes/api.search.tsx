@@ -23,6 +23,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   const { answer, context } = await answerWithContext(query, strategy);
+  console.log(context)
   return json({ 
     answer,
     context: context.map(result => ({

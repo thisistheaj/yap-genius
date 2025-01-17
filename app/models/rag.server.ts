@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client'
 import { Configuration, OpenAIApi } from "openai";
 import { Vec0SDK } from '~/lib/vec0';
 
@@ -6,7 +5,6 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is required');
 }
 
-const prisma = new PrismaClient();
 const dbPath = process.env.DATABASE_URL.replace('file:', '');
 console.log(`Opening database at ${dbPath}`);
 
@@ -22,8 +20,8 @@ const openai = new OpenAIApi(
 vec0.createTable({
   name: 'messages_vec',
   dimensions: 1536,
-  metadata: [
-    { name: 'id', type: 'TEXT', primaryKey: true }
+  auxiliaryColumns: [
+    { name: 'content' }
   ]
 });
 
@@ -43,7 +41,9 @@ export async function storeEmbedding(messageId: string, content: string) {
   }
 
   const embedding = await getEmbedding(content);
-  vec0.upsert('messages_vec', messageId, embedding);
+  vec0.upsert('messages_vec', messageId, embedding, {
+    auxiliaryData: { content }
+  });
   return messageId;
 }
 
@@ -52,23 +52,11 @@ export async function searchSimilar(query: string, limit: number = 5) {
   const embedding = await getEmbedding(query);
   const results = vec0.search('messages_vec', embedding, { limit });
 
-  // Fetch full messages for results
-  const messages = await prisma.message.findMany({
-    where: {
-      id: {
-        in: results.map(r => r.id as string)
-      }
-    }
-  });
-
-  return results.map(result => {
-    const message = messages.find(m => m.id === result.id);
-    return {
-      messageId: message?.id,
-      content: message?.content,
-      distance: result.distance
-    };
-  });
+  return results.map(result => ({
+    messageId: result.id as string,
+    content: result.auxiliaryData?.content,
+    distance: result.distance
+  }));
 }
 
 // Reciprocal Rank Fusion search
@@ -130,8 +118,8 @@ async function generateQueryVariations(query: string): Promise<string[]> {
 export async function answerWithContext(question: string, strategy: 'simple' | 'fusion' = 'simple') {
   // Get relevant context from the knowledge base
   const rawResults = strategy === 'fusion' 
-    ? await searchWithRAGFusion(question, 60, 5)
-    : await searchSimilar(question, 5);
+    ? await searchWithRAGFusion(question, 60, 10)
+    : await searchSimilar(question, 10);
 
   // Only keep what we need from results
   const contextResults = rawResults.map(result => ({
@@ -167,5 +155,4 @@ Answer:`;
 // Clean up connections
 export function cleanup() {
   vec0.close();
-  return prisma.$disconnect();
 } 
