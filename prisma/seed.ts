@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { faker } from "@faker-js/faker";
+import { readMessages } from "./seed/messages";
 
 const prisma = new PrismaClient();
 
@@ -133,58 +133,87 @@ async function createChannels(userRecords: any[]) {
 
 async function createMessages(userRecords: any[], channelRecords: any[]) {
   const [sarah, mike, alex, jamie, pat] = userRecords;
-  const [general, engineering, product, leadership, engLeadership] = channelRecords;
+  const userMap = new Map([
+    ['sarah', sarah],
+    ['mike', mike],
+    ['alex', alex],
+    ['jamie', jamie],
+    ['pat', pat]
+  ]);
 
   console.log("Creating messages...");
   
-  // Leadership private channel messages about Pat's performance
-  console.log("Creating leadership channel messages");
-  const leadershipMessages = [
-    { userId: sarah.id, content: "Mike, we need to discuss Pat's recent performance. I'm concerned about their output." },
-    { userId: mike.id, content: "I've noticed too. The last three sprints have been below expectations." },
-    { userId: sarah.id, content: "What steps have you taken to address this?" },
-    { userId: mike.id, content: "I've had two 1:1s about delivery timelines, but haven't seen improvement." },
-    { userId: sarah.id, content: "Let's monitor for another sprint, but we may need to make a tough decision." },
-    { userId: mike.id, content: "Agreed. I'll document everything carefully and we can reassess in two weeks." },
-    { userId: sarah.id, content: "Perfect. Let's keep this between us for now." }
-  ];
+  // Read messages from TSV
+  const messages = readMessages();
+  
+  // Group messages by channel
+  const messagesByChannel = new Map<string, { userId: string, content: string }[]>();
+  
+  for (const msg of messages) {
+    const user = userMap.get(msg.sender);
+    if (!user) {
+      console.warn(`Unknown user ${msg.sender} in messages.tsv`);
+      continue;
+    }
 
-  // Engineering channel messages showing tension
-  console.log("Creating engineering channel messages");
-  const engineeringMessages = [
-    { userId: mike.id, content: "Team, please update your sprint tickets by EOD." },
-    { userId: alex.id, content: "All my tickets are updated and on track." },
-    { userId: jamie.id, content: "Same here, just finished the API integration." },
-    { userId: pat.id, content: "I'm still working through the customer import feature. Taking longer than expected." },
-    { userId: alex.id, content: "Pat, that was supposed to be done last week... 🤔" },
-    { userId: pat.id, content: "I know, sorry. The edge cases are more complex than I thought." },
-    { userId: mike.id, content: "Let's pair up tomorrow to get it finished." },
-    { userId: jamie.id, content: "I've already implemented similar logic in the export feature, might be worth looking at that." },
-    { userId: pat.id, content: "Thanks, I'll take a look." },
-    { userId: alex.id, content: "We really need to stick to our sprint commitments..." }
-  ];
+    if (!messagesByChannel.has(msg.channel)) {
+      messagesByChannel.set(msg.channel, []);
+    }
+    messagesByChannel.get(msg.channel)?.push({
+      userId: user.id,
+      content: msg.content
+    });
+  }
 
-  // Product channel messages about CRM features
-  console.log("Creating product channel messages");
-  const productMessages = [
-    { userId: sarah.id, content: "Exciting update: We just signed BigCorp as a beta customer! 🎉" },
-    { userId: mike.id, content: "Great news! Team, we need to prioritize their requested features." },
-    { userId: alex.id, content: "I can take point on the custom fields implementation." },
-    { userId: jamie.id, content: "I'll handle the API rate limiting work." },
-    { userId: pat.id, content: "I can work on the bulk import feature." },
-    { userId: alex.id, content: "Pat, are you sure? You're still finishing up the customer import..." },
-    { userId: pat.id, content: "Yes, I can handle both." },
-    { userId: mike.id, content: "Let's focus on finishing current tasks first." },
-    { userId: sarah.id, content: "Agreed, quality over quantity. One thing at a time." },
-    { userId: jamie.id, content: "I can help with the bulk import if needed." }
-  ];
+  // Create messages for each channel
+  for (const [channelName, messages] of messagesByChannel) {
+    // For DMs, create or get the channel first
+    let channel;
+    if (channelName.startsWith('dm:')) {
+      const [_, user1, user2] = channelName.split(':');
+      const dmUsers = [user1, user2].sort();
+      const dmChannelName = `${dmUsers[0]}:${dmUsers[1]}`;
+      
+      // Create DM channel if it doesn't exist
+      channel = await prisma.channel.findFirst({
+        where: { name: dmChannelName }
+      });
+      
+      if (!channel) {
+        const user1Record = userMap.get(dmUsers[0]);
+        const user2Record = userMap.get(dmUsers[1]);
+        if (!user1Record || !user2Record) {
+          console.warn(`Could not find users for DM channel ${dmChannelName}`);
+          continue;
+        }
 
-  // Create messages in their respective channels
-  for (const [messages, channel] of [
-    [leadershipMessages, leadership],
-    [engineeringMessages, engineering],
-    [productMessages, product]
-  ]) {
+        channel = await prisma.channel.create({
+          data: {
+            name: dmChannelName,
+            type: "DM",
+            description: "Direct Messages",
+            createdBy: user1Record.id,
+            members: {
+              create: [
+                { userId: user1Record.id },
+                { userId: user2Record.id }
+              ]
+            }
+          }
+        });
+      }
+    } else {
+      // Get existing channel for public/private channels
+      channel = channelRecords.find(c => c.name === channelName);
+    }
+
+    if (!channel) {
+      console.warn(`Could not find channel ${channelName}`);
+      continue;
+    }
+
+    // Create messages
+    console.log(`Creating messages for channel: ${channelName}`);
     for (const msg of messages) {
       const message = await prisma.message.create({
         data: {
@@ -207,67 +236,36 @@ async function createMessages(userRecords: any[], channelRecords: any[]) {
     }
   }
 
-  // Create DMs between all users
-  console.log("Creating DM channels and messages");
+  // Create default DMs between all users (if not already created by messages)
+  console.log("Creating remaining DM channels...");
   for (let i = 0; i < userRecords.length; i++) {
     for (let j = i + 1; j < userRecords.length; j++) {
       const user1 = userRecords[i];
       const user2 = userRecords[j];
-      console.log(`Creating DM channel between ${user1.username} and ${user2.username}`);
       
-      // Create a deterministic channel name by sorting usernames
+      // Create deterministic channel name
       const dmUsers = [user1.username, user2.username].sort();
       const channelName = `${dmUsers[0]}:${dmUsers[1]}`;
       
-      const dmChannel = await prisma.channel.create({
-        data: {
-          name: channelName,
-          type: "DM",
-          description: "Direct Messages",
-          createdBy: user1.id,
-        },
+      // Check if channel already exists
+      const existingChannel = await prisma.channel.findFirst({
+        where: { name: channelName }
       });
-
-      // Add both users to DM channel
-      await prisma.channelMember.create({
-        data: {
-          channelId: dmChannel.id,
-          userId: user1.id,
-        },
-      });
-      await prisma.channelMember.create({
-        data: {
-          channelId: dmChannel.id,
-          userId: user2.id,
-        },
-      });
-
-      // Add some DM messages
-      const dmMessages = [];
-      if (user1.id === sarah.id && user2.id === mike.id) {
-        // CEO and Head of Eng discussing Pat
-        console.log("Creating leadership DM messages about Pat");
-        dmMessages.push(
-          { userId: sarah.id, content: "Have you documented all the performance issues with Pat?" },
-          { userId: mike.id, content: "Yes, I have a detailed doc with missed deadlines and quality issues." },
-          { userId: sarah.id, content: "Good. Let's discuss next steps tomorrow." }
-        );
-      } else {
-        // Regular work conversations
-        console.log("Creating regular DM messages");
-        dmMessages.push(
-          { userId: user1.id, content: `Hey, quick question about the sprint planning...` },
-          { userId: user2.id, content: `Sure, what's up?` },
-          { userId: user1.id, content: `Can we sync on the API documentation?` }
-        );
-      }
-
-      for (const msg of dmMessages) {
-        await prisma.message.create({
+      
+      if (!existingChannel) {
+        console.log(`Creating DM channel between ${user1.username} and ${user2.username}`);
+        await prisma.channel.create({
           data: {
-            channelId: dmChannel.id,
-            userId: msg.userId,
-            content: msg.content,
+            name: channelName,
+            type: "DM",
+            description: "Direct Messages",
+            createdBy: user1.id,
+            members: {
+              create: [
+                { userId: user1.id },
+                { userId: user2.id }
+              ]
+            }
           },
         });
       }
