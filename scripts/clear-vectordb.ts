@@ -2,8 +2,13 @@ import * as sqliteVec from "sqlite-vec";
 import Database from "better-sqlite3";
 import path from 'path';
 
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is required');
+}
+
 // Use the same database file as Prisma
-const db = new Database(path.join('prisma', process.env.DATABASE_URL?.replace('file:', '') || './data.db'));
+const dbPath = process.env.DATABASE_URL.replace('file:', '');
+const db = new Database(dbPath);
 sqliteVec.load(db);
 
 try {
