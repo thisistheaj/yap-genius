@@ -223,4 +223,151 @@ describe('Vec0SDK', () => {
     // Should find all three exact matches first
     expect(resultsABC.slice(0, 3).map(r => r.id).sort()).toEqual(['vec1', 'vec4', 'vec5']);
   });
+
+  test('creates and queries table with auxiliary columns', () => {
+    vec0.createTable({
+      name: 'test_vectors',
+      dimensions: 3,
+      auxiliaryColumns: [
+        { name: 'contents' }
+      ]
+    });
+
+    const vectors = [
+      { 
+        id: 'vec1', 
+        embedding: [1, 0, 0],
+        auxiliaryData: {
+          contents: 'hello world'
+        }
+      },
+      { 
+        id: 'vec2', 
+        embedding: [0, 1, 0],
+        auxiliaryData: {
+          contents: 'testing testing'
+        }
+      }
+    ];
+
+    // Insert vectors with auxiliary data
+    vectors.forEach(v => {
+      vec0.upsert('test_vectors', v.id, v.embedding, { 
+        auxiliaryData: v.auxiliaryData 
+      });
+    });
+
+    // Search and verify auxiliary data is returned
+    const results = vec0.search('test_vectors', [1, 0, 0], { limit: 2 });
+
+    expect(results).toHaveLength(2);
+    expect(results[0].id).toBe('vec1');
+    expect(results[0].auxiliaryData).toEqual({
+      contents: 'hello world'
+    });
+    expect(results[1].id).toBe('vec2');
+    expect(results[1].auxiliaryData).toEqual({
+      contents: 'testing testing'
+    });
+  });
+
+  test('combines auxiliary columns with partitions', () => {
+    vec0.createTable({
+      name: 'test_vectors',
+      dimensions: 3,
+      partitionBy: true,
+      auxiliaryColumns: [
+        { name: 'contents' }
+      ]
+    });
+
+    const vectors = [
+      { 
+        id: 'vec1', 
+        embedding: [1, 0, 0],
+        partition: 'A',
+        auxiliaryData: {
+          contents: 'first chunk'
+        }
+      },
+      { 
+        id: 'vec2', 
+        embedding: [0, 1, 0],
+        partition: 'B',
+        auxiliaryData: {
+          contents: 'second chunk'
+        }
+      }
+    ];
+
+    // Insert vectors with both partition and auxiliary data
+    vectors.forEach(v => {
+      vec0.upsert('test_vectors', v.id, v.embedding, { 
+        partition: v.partition,
+        auxiliaryData: v.auxiliaryData 
+      });
+    });
+
+    // Search in partition A and verify auxiliary data
+    const resultsA = vec0.search('test_vectors', [1, 0, 0], { 
+      limit: 1,
+      partition: 'A'
+    });
+
+    expect(resultsA).toHaveLength(1);
+    expect(resultsA[0].id).toBe('vec1');
+    expect(resultsA[0].auxiliaryData).toEqual({
+      contents: 'first chunk'
+    });
+
+    // Search in partition B and verify auxiliary data
+    const resultsB = vec0.search('test_vectors', [1, 0, 0], {
+      limit: 1,
+      partition: 'B'
+    });
+
+    expect(resultsB).toHaveLength(1);
+    expect(resultsB[0].id).toBe('vec2');
+    expect(resultsB[0].auxiliaryData).toEqual({
+      contents: 'second chunk'
+    });
+  });
+
+  test('batch upserts vectors with auxiliary data', () => {
+    vec0.createTable({
+      name: 'test_vectors',
+      dimensions: 3,
+      auxiliaryColumns: [
+        { name: 'contents' }
+      ]
+    });
+
+    const vectors = [
+      { 
+        id: 'vec1', 
+        embedding: [1, 0, 0],
+        auxiliaryData: {
+          contents: 'first chunk'
+        }
+      },
+      { 
+        id: 'vec2', 
+        embedding: [0, 1, 0],
+        auxiliaryData: {
+          contents: 'second chunk'
+        }
+      }
+    ];
+
+    const result = vec0.batchUpsert('test_vectors', vectors);
+
+    expect(result.successful).toBe(2);
+    expect(result.failed).toBe(0);
+    expect(result.errors).toHaveLength(0);
+
+    // Verify auxiliary data was stored
+    const searchResults = vec0.search('test_vectors', [1, 0, 0], { limit: 2 });
+    expect(searchResults[0].auxiliaryData).toEqual({ contents: 'first chunk' });
+    expect(searchResults[1].auxiliaryData).toEqual({ contents: 'second chunk' });
+  });
 }); 

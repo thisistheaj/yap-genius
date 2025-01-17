@@ -4,11 +4,17 @@ export interface Vec0ConnectionOptions {
   readonly?: boolean;
 }
 
+// Auxiliary column definition
+export interface Vec0AuxiliaryColumn {
+  name: string;
+}
+
 // Table schema definition
 export interface Vec0TableSchema {
   name: string;
   dimensions: number;
   partitionBy?: boolean;
+  auxiliaryColumns?: Vec0AuxiliaryColumn[];
 }
 
 // Search options
@@ -21,6 +27,7 @@ export interface Vec0SearchOptions {
 export interface Vec0SearchResult<T = any> {
   id: string;
   distance: number;
+  auxiliaryData?: Record<string, string>;
 }
 
 // Batch operation result

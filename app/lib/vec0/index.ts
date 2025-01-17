@@ -31,7 +31,11 @@ export class Vec0SDK {
       const columns = [
         'id TEXT PRIMARY KEY',
         schema.partitionBy ? 'partition TEXT' : null,
-        `embedding FLOAT[${schema.dimensions}]`
+        `embedding FLOAT[${schema.dimensions}]`,
+        // Add auxiliary columns with + prefix
+        ...(schema.auxiliaryColumns?.map(col => 
+          `+${col.name} TEXT`
+        ) || [])
       ].filter(Boolean);
 
       // Create table SQL
@@ -41,7 +45,6 @@ export class Vec0SDK {
           ${columns.join(',\n')}
         );
       `;
-
       this.db.exec(sql);
       this.recordMetric({
         tableName: schema.name,
@@ -68,24 +71,39 @@ export class Vec0SDK {
     embedding: number[],
     options: {
       partition?: string;
+      auxiliaryData?: Record<string, string>;
     } = {}
   ): void {
     const start = Date.now();
     try {
       const vec = Buffer.from(new Float32Array(embedding).buffer);
-      const { partition } = options;
+      const { partition, auxiliaryData } = options;
 
+      // Get table info to find auxiliary columns
+      const tableInfo = this.db.prepare(`SELECT * FROM pragma_table_info(?)`).all(tableName) as Array<{
+        name: string;
+      }>;
+
+      // Get auxiliary columns (excluding id, embedding, and partition)
+      const auxiliaryColumns = tableInfo
+        .map(col => col.name)
+        .filter(name => name !== 'id' && name !== 'embedding' && name !== 'partition');
+
+      // Build SQL with auxiliary columns
       const sql = `
         INSERT OR REPLACE INTO ${tableName}
-        (id, embedding${partition ? ', partition' : ''})
-        VALUES (?, ?${partition ? ', ?' : ''})
+        (id, embedding${partition ? ', partition' : ''}${auxiliaryColumns.map(col => `, ${col}`).join('')})
+        VALUES (?, ?${partition ? ', ?' : ''}${auxiliaryColumns.map(() => ', ?').join('')})
       `;
 
       const values = [id, vec];
       if (partition) values.push(partition);
-
-      console.log('SQL:', sql);
-      console.log('Values:', values);
+      if (auxiliaryData) {
+        auxiliaryColumns.forEach(col => {
+          const key = col.startsWith('+') ? col.slice(1) : col;
+          values.push(auxiliaryData[key] || '');
+        });
+      }
 
       this.db.prepare(sql).run(...values);
       
@@ -118,13 +136,31 @@ export class Vec0SDK {
       const vec = Buffer.from(new Float32Array(embedding).buffer);
       const limit = options.limit || 10;
 
+      // Get table info to find auxiliary columns
+      const tableInfo = this.db.prepare(`SELECT * FROM pragma_table_info(?)`).all(tableName) as Array<{
+        name: string;
+      }>;
+
+      // Get auxiliary columns (excluding id, embedding, and partition)
+      const auxiliaryColumns = tableInfo
+        .map(col => col.name)
+        .filter(name => name !== 'id' && name !== 'embedding' && name !== 'partition')
+        .map(name => name.startsWith('+') ? name : `+${name}`);
+
+      // Build select columns including auxiliary data
+      const selectColumns = [
+        'id',
+        'distance',
+        ...auxiliaryColumns.map(col => `${col} as ${col.replace(/^\+/, '')}`)
+      ];
+
       // Build search SQL with optional partition filter
       let sql: string;
       let params: any[];
 
       if (!options.partition) {
         sql = `
-          SELECT id, distance
+          SELECT ${selectColumns.join(', ')}
           FROM ${tableName}
           WHERE embedding MATCH ?
           ORDER BY distance ASC
@@ -133,7 +169,7 @@ export class Vec0SDK {
         params = [vec, limit];
       } else if (Array.isArray(options.partition)) {
         sql = `
-          SELECT id, distance
+          SELECT ${selectColumns.join(', ')}
           FROM ${tableName}
           WHERE embedding MATCH ?
           AND partition IN (${options.partition.map(() => '?').join(',')})
@@ -143,7 +179,7 @@ export class Vec0SDK {
         params = [vec, ...options.partition, limit];
       } else {
         sql = `
-          SELECT id, distance
+          SELECT ${selectColumns.join(', ')}
           FROM ${tableName}
           WHERE embedding MATCH ?
           AND partition = ?
@@ -153,7 +189,17 @@ export class Vec0SDK {
         params = [vec, options.partition, limit];
       }
 
-      const results = this.db.prepare(sql).all(...params) as Vec0SearchResult<T>[];
+      const rawResults = this.db.prepare(sql).all(...params);
+      
+      // Transform results to include auxiliary data
+      const results = rawResults.map(row => {
+        const { id, distance, ...auxiliary } = row as { id: string; distance: number; [key: string]: any };
+        return {
+          id,
+          distance,
+          ...(Object.keys(auxiliary).length > 0 ? { auxiliaryData: auxiliary } : {})
+        };
+      }) as Vec0SearchResult<T>[];
 
       this.recordMetric({
         tableName,
@@ -182,6 +228,7 @@ export class Vec0SDK {
       id: string | number;
       embedding: number[];
       partition?: string;
+      auxiliaryData?: Record<string, string>;
     }>
   ): Vec0BatchResult {
     const start = Date.now();
@@ -197,7 +244,8 @@ export class Vec0SDK {
         for (const item of items) {
           try {
             this.upsert(tableName, item.id, item.embedding, {
-              partition: item.partition
+              partition: item.partition,
+              auxiliaryData: item.auxiliaryData
             });
             result.successful++;
           } catch (error) {
