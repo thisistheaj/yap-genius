@@ -1,21 +1,15 @@
-import { PrismaClient } from '@prisma/client'
-import * as sqliteVec from "sqlite-vec";
-import Database from "better-sqlite3";
 import { Configuration, OpenAIApi } from "openai";
-import path from 'path';
-import crypto from 'crypto';
+import { Vec0SDK } from '~/lib/vec0';
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is required');
 }
 
-const prisma = new PrismaClient();
 const dbPath = process.env.DATABASE_URL.replace('file:', '');
 console.log(`Opening database at ${dbPath}`);
-const db = new Database(dbPath);
-sqliteVec.load(db);
 
-const limit = 40;
+// Initialize Vec0 SDK
+const vec0 = new Vec0SDK({ path: dbPath });
 
 // Initialize OpenAI client
 const openai = new OpenAIApi(
@@ -23,18 +17,13 @@ const openai = new OpenAIApi(
 );
 
 // Initialize vector table if it doesn't exist
-db.exec(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS messages_vec USING vec0(
-    rowid INTEGER PRIMARY KEY,
-    embedding FLOAT[1536]
-    );
-`);
-
-// Utility function to hash string IDs to integers
-function hashToInt(str: string) {
-  const hash = crypto.createHash('md5').update(str).digest();
-  return hash.readInt32LE(0);
-}
+vec0.createTable({
+  name: 'messages_vec',
+  dimensions: 1536,
+  auxiliaryColumns: [
+    { name: 'content' }
+  ]
+});
 
 // Get embedding for a text input
 export async function getEmbedding(text: string): Promise<number[]> {
@@ -52,49 +41,22 @@ export async function storeEmbedding(messageId: string, content: string) {
   }
 
   const embedding = await getEmbedding(content);
-  const vec = Buffer.from(new Float32Array(embedding).buffer);
-  const hashedId = hashToInt(messageId);
-
-  db.prepare(`
-    INSERT OR REPLACE INTO messages_vec(rowid, embedding) 
-    VALUES (?, ?)
-  `).run(
-    BigInt(hashedId),
-    vec
-  );
-
-  return hashedId;
-}
-
-// Define result type
-interface VectorSearchResult {
-  rowid: number;
-  distance: number;
+  vec0.upsert('messages_vec', messageId, embedding, {
+    auxiliaryData: { content }
+  });
+  return messageId;
 }
 
 // Search for similar messages
 export async function searchSimilar(query: string, limit: number = 5) {
   const embedding = await getEmbedding(query);
-  const vec = Buffer.from(new Float32Array(embedding).buffer);
+  const results = vec0.search('messages_vec', embedding, { limit });
 
-  const results = db.prepare(`
-    select rowid, distance
-    from messages_vec 
-    where embedding match ?
-    order by distance asc
-    limit ?
-  `).all(vec, limit) as VectorSearchResult[];
-  // Fetch full messages for results
-  const messages = await prisma.message.findMany();
-  const res =  results.map(result => {
-    const message = messages.find(m => BigInt(hashToInt(m.id)) === BigInt(result.rowid));
-    return {
-      messageId: message?.id,
-      content: message?.content,
-      distance: result.distance
-    };
-  });
-  return res;
+  return results.map(result => ({
+    messageId: result.id as string,
+    content: result.auxiliaryData?.content,
+    distance: result.distance
+  }));
 }
 
 // Reciprocal Rank Fusion search
@@ -156,8 +118,8 @@ async function generateQueryVariations(query: string): Promise<string[]> {
 export async function answerWithContext(question: string, strategy: 'simple' | 'fusion' = 'simple') {
   // Get relevant context from the knowledge base
   const rawResults = strategy === 'fusion' 
-    ? await searchWithRAGFusion(question, 60, limit)
-    : await searchSimilar(question, limit);
+    ? await searchWithRAGFusion(question, 60, 10)
+    : await searchSimilar(question, 10);
 
   // Only keep what we need from results
   const contextResults = rawResults.map(result => ({
@@ -165,8 +127,9 @@ export async function answerWithContext(question: string, strategy: 'simple' | '
     content: result.content,
   }));
   const context = contextResults.map(r => r.content).filter(Boolean).join('\n\n');
+
   // Create prompt with context
-  const prompt = `Answer the following question using the provided context. If the context doesn't contain relevant information, say so.
+  const prompt = `Answer the following question using the provided context. If the context doesn't contain relevant information, say so, and explain the ambiguity without making up information.
 
 Context:
 ${context}
@@ -191,6 +154,5 @@ Answer:`;
 
 // Clean up connections
 export function cleanup() {
-  db.close();
-  return prisma.$disconnect();
+  vec0.close();
 } 

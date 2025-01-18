@@ -37,9 +37,9 @@ export const action: ActionFunction = async ({ request }) => {
         }
 
         console.log(`Processing message ${message.id}`);
-        const hashedId = await storeEmbedding(message.id, message.content);
-        results.push({ messageId: message.id, hashedId });
-        console.log(`Processed message ${message.id} -> ${hashedId}`);
+        await storeEmbedding(message.id, message.content);
+        results.push({ messageId: message.id });
+        console.log(`Processed message ${message.id}`);
       } catch (error) {
         console.error(`Error processing message ${message.id}:`, error);
         results.push({ messageId: message.id, error: String(error) });
