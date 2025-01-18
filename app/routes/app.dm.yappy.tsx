@@ -33,6 +33,12 @@ function createMessage(content: string, user: { id: string, email: string, displ
   };
 }
 
+function formatMessageHistory(messages: Message[]): string {
+  return messages
+    .map(msg => `${msg.user.displayName || msg.user.email}: ${msg.content}`)
+    .join('\n');
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const userId = await requireUserId(request);
   const url = new URL(request.url);
@@ -75,10 +81,18 @@ export async function action({ request }: ActionFunctionArgs) {
   const userId = await requireUserId(request);
   const formData = await request.formData();
   const content = formData.get("content");
+  const messageHistory = formData.get("messageHistory");
 
   if (typeof content !== "string" || content.length === 0) {
     return json(
       { errors: { content: "Message content cannot be empty" } },
+      { status: 400 }
+    );
+  }
+
+  if (messageHistory !== null && typeof messageHistory !== "string") {
+    return json(
+      { errors: { messageHistory: "Message history must be a string" } },
       { status: 400 }
     );
   }
@@ -93,11 +107,14 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const url = new URL(request.url);
   // Get answer from search endpoint
-  const searchResponse = await fetch(`${url.origin}/api/search?q=${encodeURIComponent(content)}`, {
-    headers: {
-      Cookie: request.headers.get("Cookie") || ""
+  const searchResponse = await fetch(
+    `${url.origin}/api/search?q=${encodeURIComponent(content)}${messageHistory ? `&messageHistory=${encodeURIComponent(messageHistory)}` : ''}`,
+    {
+      headers: {
+        Cookie: request.headers.get("Cookie") || ""
+      }
     }
-  });
+  );
 
   if (!searchResponse.ok) {
     throw new Error("Failed to get search response");
@@ -122,7 +139,8 @@ export default function YappyDM() {
   // Update message history when new messages come from action
   useEffect(() => {
     if (actionData?.messages) {
-      setMessageHistory(prevHistory => [...prevHistory, ...actionData.messages]);
+      const newMessages = 'messages' in actionData ? actionData.messages : [];
+      setMessageHistory(prevHistory => [...prevHistory, ...newMessages]);
     }
   }, [actionData]);
 
@@ -163,6 +181,11 @@ export default function YappyDM() {
 
       {/* Message Input */}
       <Form method="post" replace>
+        <input 
+          type="hidden" 
+          name="messageHistory" 
+          value={messageHistory.length > 0 ? formatMessageHistory(messageHistory) : ''} 
+        />
         <MessageInput placeholder="Ask Yappy anything..." />
       </Form>
     </div>

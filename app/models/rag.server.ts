@@ -47,9 +47,34 @@ export async function storeEmbedding(messageId: string, content: string) {
   return messageId;
 }
 
+// Generate a better search query using chat history and current question
+async function generateSearchQuery(question: string, messageHistory?: string): Promise<string> {
+  if (!messageHistory) return question;
+
+  const prompt = `Given this conversation history and a new question, create a search query that captures the key information needed to answer the question. The query should be concise but include important context from the conversation especially replacing pronouns with the actual names of the people and things being referred to.
+
+Previous conversation:
+${messageHistory}
+
+New question: "${question}"
+
+Search query:`;
+
+  const response = await openai.createChatCompletion({
+    model: "gpt-3.5-turbo",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.7,
+  });
+  console.log(response.data.choices[0].message);
+
+  return response.data.choices[0].message?.content?.trim() || question;
+}
+
 // Search for similar messages
-export async function searchSimilar(query: string, limit: number = 5) {
-  const embedding = await getEmbedding(query);
+export async function searchSimilar(query: string, limit: number = 5, messageHistory?: string) {
+  const enhancedQuery = await generateSearchQuery(query, messageHistory);
+  console.log(`Enhanced query: ${enhancedQuery}`);
+  const embedding = await getEmbedding(enhancedQuery);
   const results = vec0.search('messages_vec', embedding, { limit });
 
   return results.map(result => ({
@@ -60,9 +85,10 @@ export async function searchSimilar(query: string, limit: number = 5) {
 }
 
 // Reciprocal Rank Fusion search
-export async function searchWithRAGFusion(query: string, k: number = 60, limit: number = 5) {
+export async function searchWithRAGFusion(query: string, k: number = 60, limit: number = 5, messageHistory?: string) {
   // Generate query variations using OpenAI
-  const variations = await generateQueryVariations(query);
+  const enhancedQuery = await generateSearchQuery(query, messageHistory);
+  const variations = await generateQueryVariations(enhancedQuery);
   
   // Get results for each query variation
   const allResults = await Promise.all(
@@ -115,11 +141,15 @@ async function generateQueryVariations(query: string): Promise<string[]> {
 }
 
 // Answer questions using context from the knowledge base
-export async function answerWithContext(question: string, strategy: 'simple' | 'fusion' = 'simple') {
+export async function answerWithContext(
+  question: string, 
+  strategy: 'simple' | 'fusion' = 'simple',
+  messageHistory?: string
+) {
   // Get relevant context from the knowledge base
   const rawResults = strategy === 'fusion' 
-    ? await searchWithRAGFusion(question, 60, 10)
-    : await searchSimilar(question, 10);
+    ? await searchWithRAGFusion(question, 60, 10, messageHistory)
+    : await searchSimilar(question, 10, messageHistory);
 
   // Only keep what we need from results
   const contextResults = rawResults.map(result => ({
@@ -128,10 +158,10 @@ export async function answerWithContext(question: string, strategy: 'simple' | '
   }));
   const context = contextResults.map(r => r.content).filter(Boolean).join('\n\n');
 
-  // Create prompt with context
-  const prompt = `Answer the following question using the provided context. If the context doesn't contain relevant information, say so, and explain the ambiguity without making up information.
+  // Create prompt with context and message history
+  const prompt = `Answer the following question using the provided context and conversation history. If the context doesn't contain relevant information, say so, and explain the ambiguity without making up information.
 
-Context:
+${messageHistory ? `Previous conversation:\n${messageHistory}\n\n` : ''}Context:
 ${context}
 
 Question: ${question}

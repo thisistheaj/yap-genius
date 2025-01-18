@@ -7,6 +7,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const query = url.searchParams.get("q");
   const strategy = (url.searchParams.get("strategy") || 'simple') as 'simple' | 'fusion';
+  const messageHistory = url.searchParams.get("messageHistory");
 
   if (!query) {
     return json(
@@ -22,7 +23,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     );
   }
 
-  const { answer, context } = await answerWithContext(query, strategy);
+  const { answer, context } = await answerWithContext(query, strategy, messageHistory || undefined);
   console.log(context)
   return json({ 
     answer,
